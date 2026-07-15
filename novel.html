@@ -794,7 +794,7 @@
 
   <script>
     (function() {
-      var AUTH_KEY = '_suyu_auth_' + location.pathname.replace(/[^a-z0-9]/gi, '_');
+      var AUTH_KEY = '_suyu_auth_reading';
       var sig = [0xC4, 0xCF, 0x7D, 0x7F].reduce(function(a, b){ return (a << 8) | b; }, 0) >> 0;
       function derive(s) {
         var h = 0x811c9dc5;
