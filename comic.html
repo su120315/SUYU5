@@ -1735,7 +1735,7 @@
   <script>
     (function() {
       var AUTH_KEY = '_suyu_auth_' + location.pathname.replace(/[^a-z0-9]/gi, '_');
-      var sig = [0xDA, 0xFB, 0x57, 0x9F].reduce(function(a, b){ return (a << 8) | b; }, 0) >> 0;
+      var sig = [0xC4, 0xCF, 0x7D, 0x7F].reduce(function(a, b){ return (a << 8) | b; }, 0) >> 0;
       function derive(s) {
         var h = 0x811c9dc5;
         for (var i = 0; i < s.length; i++) {
@@ -1748,7 +1748,8 @@
         var input = document.getElementById('authInput');
         var error = document.getElementById('authError');
         var overlay = document.getElementById('authOverlay');
-        if (derive(input.value) === sig) {
+        var val = input.value.trim().toLowerCase();
+        if (derive(val) === sig) {
           try { localStorage.setItem(AUTH_KEY, '1'); } catch(e) {}
           overlay.style.opacity = '0';
           setTimeout(function() { overlay.style.display = 'none'; }, 300);
