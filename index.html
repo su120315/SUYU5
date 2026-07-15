@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>阅读 | 蘇魚</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      font-family: var(--font-body);
+    }
+    .reading-gate {
+      text-align: center;
+      padding: 40px 24px;
+    }
+    .reading-gate h1 {
+      font-family: var(--font-heading);
+      font-size: 2rem;
+      margin-bottom: 32px;
+      background: var(--gradient);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .reading-links {
+      display: flex;
+      gap: 16px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .reading-links a {
+      padding: 14px 32px;
+      border-radius: 100px;
+      background: var(--gradient);
+      color: #fff;
+      text-decoration: none;
+      font-weight: 500;
+      transition: transform 0.2s, opacity 0.2s;
+    }
+    .reading-links a:hover {
+      transform: scale(1.05);
+      opacity: 0.9;
+    }
+    .back-link {
+      display: inline-block;
+      margin-top: 24px;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+    .back-link:hover {
+      color: var(--accent-primary);
+    }
+  </style>
+</head>
+<body>
+  <div class="reading-gate">
+    <h1>📚 阅读专区</h1>
+    <div class="reading-links">
+      <a href="novel.html">小说</a>
+      <a href="comic.html">漫画</a>
+    </div>
+    <a class="back-link" href="https://su120315.github.io/SUYU/">← 返回主页</a>
+  </div>
+</body>
+</html>

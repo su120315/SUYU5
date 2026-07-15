@@ -1,0 +1,1692 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#6366f1">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="format-detection" content="telephone=no">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="referrer" content="no-referrer">
+  <title>小说 | 蘇魚的个人主页</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://unpkg.com">
+  <script src="https://unpkg.com/lucide@latest" defer onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/lucide@latest/dist/umd/lucide.min.js';"></script>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .novel-container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 140px 24px 60px;
+    }
+    .novel-header-bar {
+      position: fixed;
+      top: 81px;
+      left: 0;
+      right: 0;
+      z-index: 100;
+      background: var(--bg-primary);
+      padding: 12px 24px;
+      border-bottom: 1px solid var(--bg-tertiary);
+    }
+    .novel-search-row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    .novel-back-btn {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      border: none;
+      background: var(--bg-secondary);
+      color: var(--text-secondary);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: all 0.2s;
+    }
+    .novel-back-btn:hover {
+      background: var(--accent-primary);
+      color: white;
+      transform: translateX(-2px);
+    }
+    .novel-search-wrap {
+      flex: 1;
+      position: relative;
+    }
+    .novel-search-input {
+      width: 100%;
+      padding: 12px 16px 12px 44px;
+      border: 1px solid var(--bg-tertiary);
+      border-radius: 12px;
+      background: var(--bg-secondary);
+      color: var(--text-primary);
+      font-size: 0.95rem;
+      font-family: var(--font-body);
+      outline: none;
+      transition: all 0.3s;
+    }
+    .novel-search-input:focus {
+      border-color: var(--accent-primary);
+      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+    }
+    .novel-search-input::placeholder {
+      color: var(--text-muted);
+    }
+    .novel-search-icon {
+      position: absolute;
+      left: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-muted);
+    }
+    .novel-search-btn {
+      padding: 12px 24px;
+      border-radius: 100px;
+      border: none;
+      background: var(--gradient);
+      color: #fff;
+      font-size: 0.95rem;
+      cursor: pointer;
+      transition: transform 0.2s, opacity 0.2s;
+      white-space: nowrap;
+      font-family: var(--font-body);
+      font-weight: 500;
+    }
+    .novel-search-btn:hover {
+      transform: scale(1.03);
+    }
+    .novel-search-btn:active {
+      transform: scale(0.98);
+    }
+    .novel-shelf-btn {
+      height: 40px;
+      padding: 0 16px;
+      border-radius: 10px;
+      border: none;
+      background: linear-gradient(135deg, #f472b6, #ec4899);
+      color: white;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.85rem;
+      font-family: var(--font-body);
+      white-space: nowrap;
+      transition: all 0.2s;
+    }
+    .novel-shelf-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(244, 114, 182, 0.35);
+    }
+    .novel-content {
+      padding-top: 20px;
+      min-height: 400px;
+    }
+    .novel-loading {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 60px 0;
+      color: var(--text-muted);
+      gap: 12px;
+    }
+    .novel-spinner {
+      width: 36px;
+      height: 36px;
+      border: 3px solid var(--bg-tertiary);
+      border-top-color: var(--accent-primary);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .novel-empty {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 80px 0;
+      color: var(--text-muted);
+      gap: 12px;
+      text-align: center;
+    }
+    .novel-empty i { font-size: 3rem; opacity: 0.4; }
+    .novel-empty p { font-size: 0.95rem; }
+    .novel-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 16px;
+    }
+    .novel-card {
+      background: var(--bg-secondary);
+      border-radius: 12px;
+      overflow: hidden;
+      cursor: pointer;
+      transition: all 0.25s;
+      border: 1px solid var(--bg-tertiary);
+      position: relative;
+    }
+    .novel-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+      border-color: rgba(99, 102, 241, 0.3);
+    }
+    .novel-card-cover {
+      width: 100%;
+      aspect-ratio: 3/4;
+      background: var(--bg-tertiary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-muted);
+      font-size: 2rem;
+      overflow: hidden;
+    }
+    .novel-card-cover img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .novel-card-badge {
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-size: 0.7rem;
+      font-weight: 500;
+      background: linear-gradient(135deg, #f472b6, #ec4899);
+      color: white;
+    }
+    .novel-card-info {
+      padding: 10px 12px;
+    }
+    .novel-card-title {
+      font-size: 0.9rem;
+      font-weight: 500;
+      color: var(--text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .novel-card-author {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .novel-card-progress {
+      font-size: 0.7rem;
+      color: var(--accent-primary);
+      margin-top: 4px;
+    }
+    .novel-card-delete {
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: rgba(0,0,0,0.5);
+      color: white;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: opacity 0.2s;
+      z-index: 2;
+    }
+    .novel-card:hover .novel-card-delete {
+      opacity: 1;
+    }
+    .novel-detail {
+      animation: fadeIn 0.3s ease;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .novel-detail-header {
+      display: flex;
+      gap: 20px;
+      margin-bottom: 24px;
+      align-items: flex-start;
+    }
+    .novel-detail-cover {
+      width: 140px;
+      min-width: 140px;
+      aspect-ratio: 3/4;
+      border-radius: 12px;
+      overflow: hidden;
+      background: var(--bg-tertiary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-muted);
+      font-size: 3rem;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+    }
+    .novel-detail-cover img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .novel-detail-meta {
+      flex: 1;
+      min-width: 0;
+    }
+    .novel-detail-title {
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 8px;
+      font-family: var(--font-heading);
+    }
+    .novel-detail-author {
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+      margin-bottom: 10px;
+    }
+    .novel-detail-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+    .novel-detail-tag {
+      padding: 3px 10px;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      background: var(--bg-tertiary);
+      color: var(--text-secondary);
+    }
+    .novel-detail-desc {
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      line-height: 1.6;
+      display: -webkit-box;
+      -webkit-line-clamp: 4;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .novel-detail-desc.expanded {
+      -webkit-line-clamp: unset;
+      display: block;
+    }
+    .novel-detail-expand {
+      color: var(--accent-primary);
+      font-size: 0.8rem;
+      cursor: pointer;
+      margin-top: 6px;
+    }
+    .novel-detail-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 16px;
+      flex-wrap: wrap;
+    }
+    .novel-action-btn {
+      padding: 10px 20px;
+      border-radius: 10px;
+      border: none;
+      font-size: 0.88rem;
+      font-family: var(--font-body);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+      font-weight: 500;
+    }
+    .novel-action-btn.primary {
+      background: var(--gradient);
+      color: white;
+    }
+    .novel-action-btn.primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 15px rgba(99, 102, 241, 0.35);
+    }
+    .novel-action-btn.secondary {
+      background: var(--bg-secondary);
+      color: var(--text-primary);
+      border: 1px solid var(--bg-tertiary);
+    }
+    .novel-action-btn.secondary:hover {
+      border-color: var(--accent-primary);
+      color: var(--accent-primary);
+    }
+    .novel-action-btn.followed {
+      background: linear-gradient(135deg, #f472b6, #ec4899);
+      color: white;
+    }
+    .novel-chapters {
+      background: var(--bg-secondary);
+      border-radius: 12px;
+      padding: 16px 20px;
+      border: 1px solid var(--bg-tertiary);
+    }
+    .novel-chapters-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .novel-chapters-title {
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+    .novel-chapters-count {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+    .novel-chapter-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 6px;
+      max-height: 400px;
+      overflow-y: auto;
+      padding: 4px;
+    }
+    .novel-chapter-item {
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all 0.15s;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      position: relative;
+    }
+    .novel-chapter-item:hover {
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+    }
+    .novel-chapter-item.read {
+      color: var(--text-muted);
+    }
+    .novel-chapter-item.cached::after {
+      content: '';
+      position: absolute;
+      right: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #10b981;
+    }
+    .novel-reader {
+      animation: fadeIn 0.3s ease;
+    }
+    .reader-progress-bar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: var(--bg-tertiary);
+      z-index: 1001;
+    }
+    .reader-progress-fill {
+      height: 100%;
+      width: 0;
+      background: var(--gradient);
+      transition: width 0.1s ease;
+    }
+    .novel-reader-top {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--bg-tertiary);
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 10001;
+      background: var(--bg-primary);
+    }
+    .novel-reader-title {
+      flex: 1;
+      text-align: center;
+      font-size: 1rem;
+      font-weight: 500;
+      color: var(--text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .novel-reader-icon-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      border: none;
+      background: var(--bg-secondary);
+      color: var(--text-secondary);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+      flex-shrink: 0;
+    }
+    .novel-reader-icon-btn:hover {
+      background: var(--accent-primary);
+      color: white;
+    }
+    .novel-reader-icon-btn.active {
+      background: linear-gradient(135deg, #f472b6, #ec4899);
+      color: white;
+    }
+    .novel-reader-content {
+      max-width: 700px;
+      margin: 0 auto;
+      padding: 80px 16px 80px;
+      line-height: 1.9;
+      font-size: 18px;
+      color: var(--text-primary);
+      text-align: justify;
+    }
+    .novel-reader-content p {
+      margin-bottom: 1.2em;
+      text-indent: 2em;
+    }
+    .novel-reader-nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      padding: 16px 0;
+      border-top: 1px solid var(--bg-tertiary);
+    }
+    .novel-reader-nav button {
+      padding: 10px 20px;
+      border-radius: 8px;
+      border: none;
+      background: var(--bg-secondary);
+      color: var(--text-primary);
+      cursor: pointer;
+      font-size: 0.9rem;
+      font-family: var(--font-body);
+      transition: all 0.2s;
+      border: 1px solid var(--bg-tertiary);
+    }
+    .novel-reader-nav button:hover:not(:disabled) {
+      border-color: var(--accent-primary);
+      color: var(--accent-primary);
+    }
+    .novel-reader-nav button:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+    .novel-reader-nav .nav-center {
+      flex: 1;
+      text-align: center;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+    .reader-settings-panel {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: var(--bg-secondary);
+      border-top: 1px solid var(--bg-tertiary);
+      padding: 20px 24px 30px;
+      z-index: 999;
+      transform: translateY(100%);
+      transition: transform 0.3s ease;
+    }
+    .reader-settings-panel.show {
+      transform: translateY(0);
+    }
+    .reader-settings-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+    .reader-settings-label {
+      font-size: 0.9rem;
+      color: var(--text-primary);
+      font-weight: 500;
+    }
+    .reader-settings-controls {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .reader-settings-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      border: 1px solid var(--bg-tertiary);
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.9rem;
+      transition: all 0.15s;
+    }
+    .reader-settings-btn:hover {
+      border-color: var(--accent-primary);
+      color: var(--accent-primary);
+    }
+    .reader-settings-btn.active {
+      background: var(--accent-primary);
+      color: white;
+      border-color: var(--accent-primary);
+    }
+    .reader-settings-value {
+      min-width: 50px;
+      text-align: center;
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+    }
+    .bg-options {
+      display: flex;
+      gap: 8px;
+    }
+    .bg-option {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      cursor: pointer;
+      border: 2px solid transparent;
+      transition: all 0.2s;
+    }
+    .bg-option.active {
+      border-color: var(--accent-primary);
+      transform: scale(1.1);
+    }
+    body.bg-paper { background: #f5f1e8; --bg-primary: #f5f1e8; --bg-secondary: #ebe6d8; --bg-tertiary: #e0dac8; --text-primary: #3d3628; --text-secondary: #5c5140; --text-muted: #8b7d65; }
+    body.bg-green { background: #cce8cf; --bg-primary: #cce8cf; --bg-secondary: #b8ddbc; --bg-tertiary: #a5d2a9; --text-primary: #1e4d28; --text-secondary: #2d6b3a; --text-muted: #4a8b5a; }
+    body.bg-dark { background: #0a0a0f; --bg-primary: #0a0a0f; --bg-secondary: #12121a; --bg-tertiary: #1a1a24; --text-primary: #f8fafc; --text-secondary: #94a3b8; --text-muted: #64748b; }
+    @media (max-width: 768px) {
+      .novel-container {
+        padding: 90px 16px 40px;
+      }
+      .novel-detail-header {
+        flex-direction: column;
+        gap: 16px;
+      }
+      .novel-detail-cover {
+        width: 100px;
+        min-width: 100px;
+      }
+      .novel-grid {
+        grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+        gap: 12px;
+      }
+      .novel-chapter-list {
+        grid-template-columns: 1fr 1fr;
+        max-height: 300px;
+      }
+      .novel-reader-content {
+        font-size: 16px;
+        padding: 70px 4px 60px;
+      }
+    }
+    .auth-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 99999;
+      background: var(--bg-primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      transition: opacity 0.3s ease;
+    }
+    .auth-box {
+      width: 100%;
+      max-width: 360px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--bg-tertiary);
+      border-radius: 16px;
+      padding: 32px;
+      text-align: center;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+    }
+    .auth-box h2 {
+      font-size: 1.2rem;
+      margin-bottom: 8px;
+      color: var(--text-primary);
+    }
+    .auth-box p {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin-bottom: 20px;
+    }
+    .auth-input {
+      width: 100%;
+      padding: 12px 16px;
+      border-radius: 100px;
+      border: 1px solid var(--bg-tertiary);
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      font-size: 0.95rem;
+      outline: none;
+      margin-bottom: 12px;
+      text-align: center;
+    }
+    .auth-input:focus {
+      border-color: var(--accent-primary);
+    }
+    .auth-btn {
+      width: 100%;
+      padding: 12px;
+      border-radius: 100px;
+      border: none;
+      background: var(--gradient);
+      color: #fff;
+      font-size: 0.95rem;
+      cursor: pointer;
+      transition: transform 0.2s;
+    }
+    .auth-btn:hover {
+      transform: scale(1.02);
+    }
+    .auth-error {
+      color: #ef4444;
+      font-size: 0.8rem;
+      margin-top: 10px;
+      min-height: 1.2em;
+    }
+  </style>
+</head>
+<body>
+  <div class="auth-overlay" id="authOverlay">
+    <div class="auth-box">
+      <h2>🔒 受保护页面</h2>
+      <p>请输入访问密码继续浏览</p>
+      <input type="password" class="auth-input" id="authInput" placeholder="密码" onkeydown="if(event.key==='Enter') checkAuth()">
+      <button class="auth-btn" onclick="checkAuth()">进入</button>
+      <div class="auth-error" id="authError"></div>
+    </div>
+  </div>
+  <nav class="navbar">
+    <div class="nav-content">
+      <a href="https://su120315.github.io/SUYU/" class="nav-logo">蘇魚</a>
+      <ul class="nav-links">
+        <li><a href="https://su120315.github.io/SUYU/#about">关于</a></li>
+        <li><a href="https://su120315.github.io/SUYU/#skills">技能</a></li>
+        <li><a href="https://su120315.github.io/SUYU/#hobbies">爱好</a></li>
+        <li><a href="novel.html">小说</a></li>
+        <li><a href="comic.html">漫画</a></li>
+        <li><a href="https://su120315.github.io/SUYU/#gallery">相册</a></li>
+        <li><a href="https://su120315.github.io/SUYU/#comments">留言</a></li>
+      </ul>
+      <button class="nav-toggle" id="navToggle" aria-label="菜单">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </nav>
+  <div class="nav-overlay" id="navOverlay"></div>
+
+  <div class="reader-progress-bar" id="readerProgressBar" style="display:none;">
+    <div class="reader-progress-fill" id="readerProgressFill"></div>
+  </div>
+
+  <div class="novel-container">
+    <div class="novel-header-bar">
+      <div class="novel-search-row">
+        <button class="novel-back-btn" id="novelBackBtn" style="display:none;" data-action="novel-back">
+          <i data-lucide="arrow-left" style="width:18px;height:18px;"></i>
+        </button>
+        <div class="novel-search-wrap" id="novelSearchWrap">
+          <i data-lucide="search" class="novel-search-icon" style="width:18px;height:18px;"></i>
+          <input type="text" class="novel-search-input" id="novelSearchInput" placeholder="搜索小说名称..." onkeydown="if(event.key==='Enter') doNovelSearch()">
+        </div>
+        <button class="novel-search-btn" data-action="novel-search">搜索</button>
+        <button class="novel-shelf-btn" data-action="novel-shelf">
+          <i data-lucide="heart" style="width:16px;height:16px;"></i>
+          我的书架
+        </button>
+      </div>
+    </div>
+
+    <div class="novel-content" id="novelContent">
+      <div class="novel-empty">
+        <i data-lucide="book-open" style="width:48px;height:48px;"></i>
+        <p>搜索你想看的小说，开始阅读吧～</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="reader-settings-panel" id="readerSettings">
+    <div class="novel-container" style="padding:0;">
+      <div class="reader-settings-row">
+        <div class="reader-settings-label">字号</div>
+        <div class="reader-settings-controls">
+          <button class="reader-settings-btn" data-action="font-dec">A-</button>
+          <div class="reader-settings-value" id="fontSizeValue">18px</div>
+          <button class="reader-settings-btn" data-action="font-inc">A+</button>
+        </div>
+      </div>
+      <div class="reader-settings-row">
+        <div class="reader-settings-label">背景</div>
+        <div class="bg-options">
+          <div class="bg-option active" data-bg="default" style="background:var(--bg-primary);" data-action="bg-default" title="默认"></div>
+          <div class="bg-option" data-bg="paper" style="background:#f5f1e8;" data-action="bg-paper" title="护眼"></div>
+          <div class="bg-option" data-bg="green" style="background:#cce8cf;" data-action="bg-green" title="豆绿"></div>
+          <div class="bg-option" data-bg="dark" style="background:#1a1a24;" data-action="bg-dark" title="夜间"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function() {
+      var AUTH_KEY = '_suyu_auth_' + location.pathname.replace(/[^a-z0-9]/gi, '_');
+      var sig = [0xDA, 0xFB, 0x57, 0x9F].reduce(function(a, b){ return (a << 8) | b; }, 0) >> 0;
+      function derive(s) {
+        var h = 0x811c9dc5;
+        for (var i = 0; i < s.length; i++) {
+          h ^= s.charCodeAt(i);
+          h = Math.imul(h, 0x01000193);
+        }
+        return h;
+      }
+      function checkAuth() {
+        var input = document.getElementById('authInput');
+        var error = document.getElementById('authError');
+        var overlay = document.getElementById('authOverlay');
+        if (derive(input.value) === sig) {
+          try { localStorage.setItem(AUTH_KEY, '1'); } catch(e) {}
+          overlay.style.opacity = '0';
+          setTimeout(function() { overlay.style.display = 'none'; }, 300);
+        } else {
+          error.textContent = '密码错误，请重试';
+          input.value = '';
+          input.focus();
+        }
+      }
+      window.checkAuth = checkAuth;
+      try {
+        if (localStorage.getItem(AUTH_KEY) === '1') {
+          document.getElementById('authOverlay').style.display = 'none';
+        }
+      } catch(e) {}
+    })();
+    (function() {
+      const navToggle = document.getElementById('navToggle');
+      const navLinks = document.querySelector('.nav-links');
+      const navOverlay = document.getElementById('navOverlay');
+      if (navToggle && navLinks) {
+        function closeNav() {
+          navToggle.classList.remove('active');
+          navLinks.classList.remove('active');
+          if (navOverlay) navOverlay.classList.remove('active');
+        }
+        navToggle.addEventListener('click', function() {
+          navToggle.classList.toggle('active');
+          navLinks.classList.toggle('active');
+          if (navOverlay) navOverlay.classList.toggle('active');
+        });
+        navLinks.querySelectorAll('a').forEach(function(link) {
+          link.addEventListener('click', closeNav);
+        });
+        if (navOverlay) navOverlay.addEventListener('click', closeNav);
+      }
+    })();
+
+    function safeLucide() {
+      if (typeof lucide !== 'undefined') {
+        try { lucide.createIcons(); } catch(e) { console.warn('Lucide error:', e); }
+      }
+    }
+
+    const ZH_API = 'https://bookapi.zongheng.com/api/chapter/getChapterList';
+    const ZH_SEARCH_URL = 'https://search.zongheng.com/search/book';
+    const ZH_READ_URL = 'https://read.zongheng.com/chapter/';
+    const CORS_PROXIES = [
+      function(url) { return 'https://api.codetabs.com/v1/proxy/?quest=' + encodeURIComponent(url); },
+      function(url) { return 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url); },
+      function(url) { return 'https://api.allorigins.win/get?url=' + encodeURIComponent(url); },
+      function(url) { return 'https://api.whateverorigin.org/get?url=' + encodeURIComponent(url); },
+      function(url) { return 'https://cors.bridged.cc/' + url; },
+      function(url) { return 'https://corsproxy.io/?url=' + encodeURIComponent(url); }
+    ];
+    const content = document.getElementById('novelContent');
+    const searchInput = document.getElementById('novelSearchInput');
+    const searchWrap = document.getElementById('novelSearchWrap');
+    const backBtn = document.getElementById('novelBackBtn');
+    const progressBar = document.getElementById('readerProgressBar');
+    const progressFill = document.getElementById('readerProgressFill');
+    const settingsPanel = document.getElementById('readerSettings');
+
+    let currentView = 'empty';
+    let currentSearchResults = [];
+    let currentNovel = null;
+    let currentChapterIndex = 0;
+    let currentChapters = [];
+    let followedNovels = {};
+    let readingHistory = {};
+    let cachedChapters = {};
+
+    let readerFontSize = 18;
+    let readerBg = 'default';
+
+    function escapeHtml(s) {
+      if (!s) return '';
+      return String(s).replace(/[&<>"']/g, function(c) {
+        return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+      });
+    }
+
+    function loadFollowed() {
+      try {
+        var data = localStorage.getItem('suyu-novel-followed');
+        followedNovels = data ? JSON.parse(data) : {};
+      } catch(e) { followedNovels = {}; }
+    }
+    function saveFollowed() {
+      localStorage.setItem('suyu-novel-followed', JSON.stringify(followedNovels));
+    }
+
+    function loadHistory() {
+      try {
+        var data = localStorage.getItem('suyu-novel-history');
+        readingHistory = data ? JSON.parse(data) : {};
+      } catch(e) { readingHistory = {}; }
+    }
+    function saveHistory() {
+      localStorage.setItem('suyu-novel-history', JSON.stringify(readingHistory));
+    }
+    function recordHistory(novelKey, title, chapterIndex, chapterTitle) {
+      readingHistory[novelKey] = {
+        title: title,
+        chapterIndex: chapterIndex,
+        chapterTitle: chapterTitle,
+        time: Date.now()
+      };
+      saveHistory();
+    }
+    function getHistory(novelKey) {
+      return readingHistory[novelKey] || null;
+    }
+
+    function loadSettings() {
+      var fs = localStorage.getItem('suyu-novel-fontsize');
+      if (fs) readerFontSize = parseInt(fs) || 18;
+      var bg = localStorage.getItem('suyu-novel-bg');
+      if (bg) readerBg = bg;
+      applyReaderSettings();
+    }
+    function saveSettings() {
+      localStorage.setItem('suyu-novel-fontsize', readerFontSize);
+      localStorage.setItem('suyu-novel-bg', readerBg);
+    }
+    function applyReaderSettings() {
+      var rc = document.querySelector('.novel-reader-content');
+      if (rc) rc.style.fontSize = readerFontSize + 'px';
+      var fv = document.getElementById('fontSizeValue');
+      if (fv) fv.textContent = readerFontSize + 'px';
+      document.body.classList.remove('bg-paper', 'bg-green', 'bg-dark');
+      if (readerBg !== 'default') {
+        document.body.classList.add('bg-' + readerBg);
+      }
+      document.querySelectorAll('.bg-option').forEach(function(el) {
+        el.classList.toggle('active', el.dataset.bg === readerBg);
+      });
+    }
+
+    function initPageTheme() {
+      var savedTheme = localStorage.getItem('theme');
+      var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      if (savedTheme === 'dark' || (!savedTheme && prefersDark)) {
+        document.body.classList.add('dark-mode');
+      }
+      if (window.matchMedia) {
+        var mq = window.matchMedia('(prefers-color-scheme: dark)');
+        var handler = function(e) {
+          if (!localStorage.getItem('theme')) {
+            if (e.matches) {
+              document.body.classList.add('dark-mode');
+            } else {
+              document.body.classList.remove('dark-mode');
+            }
+          }
+        };
+        if (mq.addEventListener) mq.addEventListener('change', handler);
+        else if (mq.addListener) mq.addListener(handler);
+      }
+    }
+    initPageTheme();
+
+    function isFollowed(novelKey) {
+      return !!followedNovels[novelKey];
+    }
+    function toggleFollow(novel) {
+      var key = novel.searchKey;
+      if (followedNovels[key]) {
+        delete followedNovels[key];
+      } else {
+        followedNovels[key] = {
+          title: novel.title,
+          author: novel.author || '',
+          cover: novel.cover || '',
+          category: novel.category || '',
+          desc: novel.desc || '',
+          searchKey: key,
+          nIndex: novel.nIndex,
+          webId: novel.webId,
+          totalChapters: novel.totalChapters || 0,
+          lastChapter: novel.lastChapter || '',
+          followTime: Date.now(),
+          lastReadChapter: 0,
+          lastReadTitle: ''
+        };
+      }
+      saveFollowed();
+      return !followedNovels[key];
+    }
+    function updateFollowProgress(novelKey, chapterIndex, chapterTitle) {
+      if (followedNovels[novelKey]) {
+        followedNovels[novelKey].lastReadChapter = chapterIndex;
+        followedNovels[novelKey].lastReadTitle = chapterTitle;
+        followedNovels[novelKey].lastReadTime = Date.now();
+        saveFollowed();
+      }
+    }
+
+    function getCachedChapter(novelKey, chapterIndex) {
+      var key = novelKey + '_' + chapterIndex;
+      try {
+        var data = localStorage.getItem('suyu-novel-cache-' + key);
+        return data ? JSON.parse(data) : null;
+      } catch(e) { return null; }
+    }
+    function cacheChapter(novelKey, chapterIndex, title, content) {
+      var key = novelKey + '_' + chapterIndex;
+      try {
+        localStorage.setItem('suyu-novel-cache-' + key, JSON.stringify({
+          title: title,
+          content: content,
+          time: Date.now()
+        }));
+      } catch(e) {
+        console.warn('缓存失败:', e);
+      }
+    }
+
+    function showBack(show) {
+      backBtn.style.display = show ? 'flex' : 'none';
+    }
+
+    function showLoading() {
+      content.innerHTML = '<div class="novel-loading"><div class="novel-spinner"></div><span>加载中...</span></div>';
+      safeLucide();
+    }
+
+    function showEmpty(msg) {
+      content.innerHTML = '<div class="novel-empty"><i data-lucide="book-open" style="width:48px;height:48px;"></i><p>' + (msg || '暂无内容') + '</p></div>';
+      safeLucide();
+    }
+
+    async function doNovelSearch() {
+      var keyword = searchInput.value.trim();
+      if (!keyword) return;
+      currentView = 'search';
+      showBack(false);
+      showLoading();
+      try {
+        var results = await fetchNovelSearch(keyword);
+        currentSearchResults = results;
+        renderSearchResults(results, keyword);
+      } catch(e) {
+        console.error('搜索失败:', e);
+        showEmpty('搜索失败：' + (e.message || '网络错误') + '<br><span style="font-size:0.8rem;color:var(--text-muted);">请检查网络连接，或稍后重试</span>');
+      }
+    }
+
+    function promiseAny(promises) {
+      return new Promise(function(resolve, reject) {
+        var errors = [];
+        var remaining = promises.length;
+        if (remaining === 0) { reject(new Error('no promises')); return; }
+        for (var i = 0; i < promises.length; i++) {
+          (function(idx) {
+            Promise.resolve(promises[idx]).then(function(val) {
+              resolve(val);
+            }, function(err) {
+              errors[idx] = err;
+              remaining--;
+              if (remaining === 0) reject(new Error('all failed'));
+            });
+          })(i);
+        }
+      });
+    }
+
+    async function fetchWithProxy(url, expectJson) {
+      var controllers = [];
+      var promises = CORS_PROXIES.map(function(proxyFn, proxyIdx) {
+        var controller = new AbortController();
+        controllers.push(controller);
+        var timeoutId = setTimeout(function() { controller.abort(); }, 15000);
+        return fetch(proxyFn(url), { signal: controller.signal })
+          .then(function(resp) {
+            if (!resp.ok) throw new Error('HTTP ' + resp.status);
+            return resp.text();
+          })
+          .then(function(text) {
+            clearTimeout(timeoutId);
+            try {
+              var json = JSON.parse(text);
+              if (json && json.contents) text = json.contents;
+              else if (json && typeof json.data === 'string') text = json.data;
+              else if (json && json.html) text = json.html;
+            } catch(e) {}
+            if (expectJson) {
+              try { return { data: JSON.parse(text), proxyIdx: proxyIdx }; } catch(e) {}
+            }
+            return { data: text, proxyIdx: proxyIdx };
+          });
+      });
+
+      try {
+        var result = await promiseAny(promises);
+        for (var c = 0; c < controllers.length; c++) {
+          try { controllers[c].abort(); } catch(e) {}
+        }
+        return result.data;
+      } catch(e) {
+        throw new Error('网络请求失败，请稍后重试');
+      }
+    }
+
+    async function fetchNovelSearch(keyword) {
+      var url = ZH_SEARCH_URL + '?keyword=' + encodeURIComponent(keyword) + '&pageNo=1&pageNum=20';
+      var resp, data;
+      // 该接口支持CORS，优先直接请求
+      try {
+        resp = await fetch(url, { method: 'GET', credentials: 'omit', headers: { 'Accept': 'application/json' } });
+        data = await resp.json();
+      } catch (e) {
+        console.warn('直连搜索失败，尝试代理', e);
+        var proxyUrl = await fetchWithProxy(url, true);
+        data = proxyUrl;
+      }
+      var results = [];
+      if (!data || data.code !== 0 || !data.data || !data.data.datas || !data.data.datas.list) {
+        return results;
+      }
+      var list = data.data.datas.list;
+      for (var i = 0; i < list.length; i++) {
+        var item = list[i];
+        var cover = item.coverUrl || '';
+        if (cover && cover.charAt(0) === '/') cover = 'https://static.zongheng.com' + cover;
+        results.push({
+          title: (item.name || '未知').replace(/<[^>]+>/g, '').trim(),
+          author: item.authorName || '未知作者',
+          cover: cover,
+          category: item.cateFineName || '',
+          desc: item.description || '',
+          lastChapter: item.chapterName || '',
+          totalChapters: 0,
+          update: item.updateTime ? item.updateTime.split('T')[0] : '',
+          bookId: String(item.bookId),
+          chapters: [],
+          searchKey: 'zh_' + item.bookId
+        });
+      }
+      return results;
+    }
+
+    async function fetchNovelDetail(searchKey) {
+      var bookId = searchKey.replace('zh_', '');
+      
+      // 1. 获取章节列表（bookapi支持CORS，直接调用）
+      var chapterData;
+      try {
+        var resp = await fetch(ZH_API, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Referer': 'https://read.zongheng.com/' },
+          body: 'bookId=' + bookId,
+          credentials: 'omit'
+        });
+        chapterData = await resp.json();
+      } catch(e) {
+        console.warn('直连章节列表失败，尝试代理');
+        var proxyUrl = CORS_PROXIES[0]('https://bookapi.zongheng.com/api/chapter/getChapterList?bookId=' + bookId);
+        var proxyResp = await fetch(proxyUrl);
+        var proxyText = await proxyResp.text();
+        try {
+          var pj = JSON.parse(proxyText);
+          if (pj.contents) proxyText = pj.contents;
+          chapterData = JSON.parse(proxyText);
+        } catch(e2) {
+          throw new Error('获取章节列表失败');
+        }
+      }
+
+      if (!chapterData || chapterData.code !== 0 || !chapterData.result) return null;
+
+      var chapterList = chapterData.result.chapterList || [];
+      var chapters = [];
+      for (var v = 0; v < chapterList.length; v++) {
+        var vol = chapterList[v].chapterViewList || [];
+        for (var c = 0; c < vol.length; c++) {
+          chapters.push({
+            index: chapters.length,
+            chapterId: vol[c].chapterId,
+            title: vol[c].chapterName,
+            bookId: bookId
+          });
+        }
+      }
+
+      // 2. 先尝试从搜索结果中获取书籍信息
+      var title = '未知', author = '未知', cover = '', desc = '', category = '', update = '';
+      for (var i = 0; i < currentSearchResults.length; i++) {
+        if (currentSearchResults[i].searchKey === searchKey) {
+          var cached = currentSearchResults[i];
+          title = cached.title;
+          author = cached.author;
+          cover = cached.cover;
+          desc = cached.desc;
+          category = cached.category;
+          update = cached.update;
+          break;
+        }
+      }
+
+      // 3. 如果搜索结果中没有，尝试从书架中获取
+      if (title === '未知' && followedNovels[searchKey]) {
+        var shelfNovel = followedNovels[searchKey];
+        title = shelfNovel.title;
+        author = shelfNovel.author;
+        cover = shelfNovel.cover;
+        desc = shelfNovel.desc;
+        category = shelfNovel.category;
+      }
+
+      return {
+        title: title,
+        author: author,
+        cover: cover,
+        category: category,
+        desc: desc,
+        lastChapter: chapters.length > 0 ? chapters[chapters.length - 1].title : '',
+        totalChapters: chapters.length,
+        update: update,
+        bookId: bookId,
+        chapters: chapters,
+        searchKey: searchKey
+      };
+    }
+
+    function renderSearchResults(results, keyword) {
+      if (!results || results.length === 0) {
+        showEmpty('没有找到相关小说，换个关键词试试吧');
+        return;
+      }
+      var html = '<div style="margin-bottom:16px;color:var(--text-muted);font-size:0.85rem;">找到 ' + results.length + ' 本相关小说</div>';
+      html += '<div class="novel-grid">';
+      for (var i = 0; i < results.length; i++) {
+        var novel = results[i];
+        var safeTitle = escapeHtml(novel.title);
+        var safeAuthor = escapeHtml(novel.author || '未知作者');
+        var coverHtml = novel.cover
+          ? '<img src="' + escapeHtml(novel.cover) + '" alt="' + safeTitle + '" referrerpolicy="no-referrer" onerror="this.parentElement.innerHTML=\'<span style=font-size:2rem;>📖</span>\'">'
+          : '<span style="font-size:2.5rem;">📖</span>';
+        var metaText = novel.category || (novel.update ? '更新于 ' + novel.update : '');
+        html += '<div class="novel-card" data-action="novel-detail" data-index="' + i + '">'
+          + '<div class="novel-card-cover">' + coverHtml + '</div>'
+          + '<div class="novel-card-info">'
+          + '<div class="novel-card-title">' + safeTitle + '</div>'
+          + '<div class="novel-card-author">' + safeAuthor + '</div>'
+          + '<div class="novel-card-progress">' + (metaText || '纵横中文网') + '</div>'
+          + '</div></div>';
+      }
+      html += '</div>';
+      content.innerHTML = html;
+      safeLucide();
+    }
+
+    function showNovelDetail(novel) {
+      currentView = 'detail';
+      currentNovel = novel;
+      currentChapters = novel.chapters || [];
+      showBack(true);
+
+      var safeTitle = escapeHtml(novel.title);
+      var safeAuthor = escapeHtml(novel.author || '未知作者');
+      var safeDesc = escapeHtml(novel.desc || '暂无简介');
+      var safeCategory = escapeHtml(novel.category || '');
+      var followed = isFollowed(novel.searchKey);
+      var history = getHistory(novel.searchKey);
+
+      var coverHtml = novel.cover
+        ? '<img src="' + escapeHtml(novel.cover) + '" alt="' + safeTitle + '" referrerpolicy="no-referrer" onerror="this.parentElement.innerHTML=\'<span style=font-size:3rem;>📖</span>\'">'
+        : '<span style="font-size:3.5rem;">📖</span>';
+
+      var tagsHtml = '';
+      if (novel.category) tagsHtml += '<span class="novel-detail-tag">' + safeCategory + '</span>';
+      if (novel.totalChapters) tagsHtml += '<span class="novel-detail-tag">' + novel.totalChapters + ' 章</span>';
+      if (novel.update) tagsHtml += '<span class="novel-detail-tag">更新于 ' + escapeHtml(novel.update) + '</span>';
+
+      var chaptersHtml = '';
+      for (var i = 0; i < currentChapters.length; i++) {
+        var ch = currentChapters[i];
+        var cached = getCachedChapter(novel.searchKey, ch.chapterId || ch.index);
+        var readClass = history && history.chapterIndex >= i ? ' read' : '';
+        var cachedClass = cached ? ' cached' : '';
+        chaptersHtml += '<div class="novel-chapter-item' + readClass + cachedClass + '" data-action="read-chapter" data-index="' + i + '" title="' + escapeHtml(ch.title) + '">' + escapeHtml(ch.title) + '</div>';
+      }
+
+      var startChapter = history ? history.chapterIndex : 1;
+
+      var html = '<div class="novel-detail">'
+        + '<div class="novel-detail-header">'
+        + '<div class="novel-detail-cover">' + coverHtml + '</div>'
+        + '<div class="novel-detail-meta">'
+        + '<div class="novel-detail-title">' + safeTitle + '</div>'
+        + '<div class="novel-detail-author">作者：' + safeAuthor + '</div>'
+        + '<div class="novel-detail-tags">' + tagsHtml + '</div>'
+        + '<div class="novel-detail-desc" id="novelDesc">' + safeDesc + '</div>'
+        + '<div class="novel-detail-expand" id="descExpand" data-action="toggle-desc">展开简介</div>'
+        + '<div class="novel-detail-actions">'
+        + '<button class="novel-action-btn primary" data-action="start-read">📖 开始阅读</button>'
+        + '<button class="novel-action-btn ' + (followed ? 'followed' : 'secondary') + '" data-action="toggle-follow">'
+        + (followed ? '❤️ 已加入书架' : '＋ 加入书架') + '</button>'
+        + '</div>'
+        + (history ? '<div style="margin-top:12px;font-size:0.82rem;color:var(--text-muted);">上次读到：<span style="color:var(--accent-primary);">' + escapeHtml(history.chapterTitle || '') + '</span></div>' : '')
+        + '</div></div>'
+        + '<div class="novel-chapters">'
+        + '<div class="novel-chapters-header">'
+        + '<div class="novel-chapters-title">章节目录</div>'
+        + '<div class="novel-chapters-count">共 ' + currentChapters.length + ' 章</div>'
+        + '</div>'
+        + '<div class="novel-chapter-list">' + chaptersHtml + '</div>'
+        + '</div></div>';
+
+      content.innerHTML = html;
+      safeLucide();
+    }
+
+    async function loadChapter(chapterIndex) {
+      if (!currentNovel) return;
+      currentView = 'reader';
+      currentChapterIndex = chapterIndex;
+      var ch = currentChapters[chapterIndex];
+      if (!ch) return;
+
+      showBack(true);
+      searchWrap.style.display = 'none';
+      progressBar.style.display = 'block';
+      document.body.style.paddingTop = '';
+      var headerBar = document.querySelector('.novel-header-bar');
+      if (headerBar) headerBar.style.display = 'none';
+
+      var cached = getCachedChapter(currentNovel.searchKey, ch.chapterId);
+      var chapterTitle = ch.title || '';
+      var chapterContent = '';
+
+      if (cached) {
+          chapterContent = cached.content;
+          renderReader(chapterTitle, chapterContent, chapterIndex);
+        } else {
+          showLoading();
+          try {
+            var ch = currentChapters[chapterIndex];
+            var chapterUrl = ZH_READ_URL + ch.bookId + '/' + ch.chapterId + '.html';
+            var html = await fetchWithProxy(chapterUrl, false);
+            // 解析章节正文
+            var contentMatch = html.match(/<div[^>]*class="content"[^>]*>([\s\S]*?)<\/div>/);
+            if (!contentMatch) contentMatch = html.match(/<div[^>]*id="chapterContent"[^>]*>([\s\S]*?)<\/div>/);
+            if (contentMatch) {
+              chapterContent = contentMatch[1]
+                .replace(/<p[^>]*>/g, '')
+                .replace(/<\/p>/g, '\n')
+                .replace(/<br\s*\/?>/g, '\n')
+                .replace(/<[^>]+>/g, '')
+                .replace(/&nbsp;/g, ' ')
+                .replace(/&lt;/g, '<')
+                .replace(/&gt;/g, '>')
+                .replace(/&amp;/g, '&')
+                .replace(/&quot;/g, '"')
+                .replace(/&#39;/g, "'")
+                .trim();
+            }
+            if (!chapterContent) {
+              chapterContent = '本章内容获取失败，可能为VIP章节或网络问题。';
+            }
+            cacheChapter(currentNovel.searchKey, ch.chapterId, chapterTitle, chapterContent);
+            renderReader(chapterTitle, chapterContent, chapterIndex);
+          } catch(e) {
+            console.error('加载章节失败:', e);
+            showEmpty('加载失败：' + (e.message || '请检查网络'));
+          }
+        }
+
+      recordHistory(currentNovel.searchKey, currentNovel.title, chapterIndex, chapterTitle);
+      updateFollowProgress(currentNovel.searchKey, chapterIndex, chapterTitle);
+    }
+
+    function renderReader(title, bodyText, chapterIdx) {
+      var safeTitle = escapeHtml(title);
+      var prevBtn = chapterIdx > 0
+        ? '<button data-action="prev-chapter"><i data-lucide="chevron-left" style="width:16px;height:16px;"></i> 上一章</button>'
+        : '<button disabled>上一章</button>';
+      var nextBtn = chapterIdx < currentChapters.length - 1
+        ? '<button data-action="next-chapter">下一章 <i data-lucide="chevron-right" style="width:16px;height:16px;"></i></button>'
+        : '<button disabled>下一章</button>';
+
+      var paragraphs = bodyText.split(/\n\s*\n/).filter(function(p) { return p.trim(); });
+      var contentHtml = '';
+      if (paragraphs.length > 1) {
+        contentHtml = paragraphs.map(function(p) {
+          return '<p>' + escapeHtml(p.trim()) + '</p>';
+        }).join('');
+      } else {
+        var lines = bodyText.split('\n').filter(function(l) { return l.trim(); });
+        contentHtml = lines.map(function(l) {
+          return '<p>' + escapeHtml(l.trim()) + '</p>';
+        }).join('');
+      }
+
+      var bookmarked = false;
+      if (currentNovel && currentNovel.searchKey) {
+        try {
+          var bms = JSON.parse(localStorage.getItem('suyu-novel-bookmarks') || '{}');
+          bookmarked = !!(bms[currentNovel.searchKey] && bms[currentNovel.searchKey][currentChapters[chapterIdx].index]);
+        } catch(e) {}
+      }
+
+      var html = '<div class="novel-reader">'
+        + '<div class="novel-reader-top">'
+        + '<button class="novel-reader-icon-btn" data-action="reader-back" title="返回">'
+        + '<i data-lucide="arrow-left" style="width:18px;height:18px;"></i></button>'
+        + '<div class="novel-reader-title">' + safeTitle + '</div>'
+        + '<button class="novel-reader-icon-btn ' + (bookmarked ? 'active' : '') + '" data-action="toggle-bookmark" title="书签">'
+        + '<i data-lucide="bookmark" style="width:18px;height:18px;"></i></button>'
+        + '<button class="novel-reader-icon-btn" data-action="toggle-settings" title="设置">'
+        + '<i data-lucide="settings" style="width:18px;height:18px;"></i></button>'
+        + '</div>'
+        + '<div class="novel-reader-content" id="readerContent">' + contentHtml + '</div>'
+        + '<div class="novel-reader-nav">' + prevBtn
+        + '<span class="nav-center">' + (chapterIdx + 1) + ' / ' + currentChapters.length + '</span>'
+        + nextBtn + '</div></div>';
+
+      content.innerHTML = html;
+      safeLucide();
+      applyReaderSettings();
+      progressFill.style.width = '0%';
+      window.scrollTo(0, 0);
+    }
+
+    function showShelf() {
+      currentView = 'shelf';
+      showBack(false);
+      searchWrap.style.display = '';
+
+      var keys = Object.keys(followedNovels);
+      if (keys.length === 0) {
+        content.innerHTML = '<div class="novel-empty"><i data-lucide="heart" style="width:48px;height:48px;"></i><p>书架还是空的，快去搜几本喜欢的小说加入书架吧～</p></div>';
+        safeLucide();
+        return;
+      }
+
+      keys.sort(function(a, b) {
+        return (followedNovels[b].lastReadTime || followedNovels[b].followTime) - (followedNovels[a].lastReadTime || followedNovels[a].followTime);
+      });
+
+      var html = '<div style="margin-bottom:16px;color:var(--text-muted);font-size:0.85rem;">我的书架 · ' + keys.length + ' 本</div>';
+      html += '<div class="novel-grid">';
+      for (var i = 0; i < keys.length; i++) {
+        var novel = followedNovels[keys[i]];
+        var safeTitle = escapeHtml(novel.title);
+        var safeAuthor = escapeHtml(novel.author || '未知作者');
+        var coverHtml = novel.cover
+          ? '<img src="' + escapeHtml(novel.cover) + '" alt="' + safeTitle + '" referrerpolicy="no-referrer" onerror="this.parentElement.innerHTML=\'<span style=font-size:2rem;>📖</span>\'">'
+          : '<span style="font-size:2.5rem;">📖</span>';
+        var progressText = novel.lastReadTitle ? '看到：' + escapeHtml(novel.lastReadTitle) : (novel.totalChapters ? novel.totalChapters + ' 章' : '');
+        html += '<div class="novel-card" data-action="shelf-detail" data-key="' + escapeHtml(keys[i]) + '">'
+          + '<div class="novel-card-badge">追更</div>'
+          + '<button class="novel-card-delete" data-action="remove-follow" data-key="' + escapeHtml(keys[i]) + '">'
+          + '<i data-lucide="x" style="width:14px;height:14px;"></i></button>'
+          + '<div class="novel-card-cover">' + coverHtml + '</div>'
+          + '<div class="novel-card-info">'
+          + '<div class="novel-card-title">' + safeTitle + '</div>'
+          + '<div class="novel-card-author">' + safeAuthor + '</div>'
+          + '<div class="novel-card-progress">' + progressText + '</div>'
+          + '</div></div>';
+      }
+      html += '</div>';
+      content.innerHTML = html;
+      safeLucide();
+    }
+
+    function goBack() {
+      settingsPanel.classList.remove('show');
+      var headerBar = document.querySelector('.novel-header-bar');
+      if (headerBar) headerBar.style.display = '';
+      if (currentView === 'reader') {
+        currentView = 'detail';
+        progressBar.style.display = 'none';
+        document.body.style.paddingTop = '';
+        searchWrap.style.display = '';
+        if (currentNovel) showNovelDetail(currentNovel);
+      } else if (currentView === 'detail' || currentView === 'shelf-detail') {
+        currentView = 'search';
+        if (currentSearchResults.length > 0) {
+          renderSearchResults(currentSearchResults, '');
+        } else {
+          showEmpty('搜索你想看的小说，开始阅读吧～');
+        }
+        showBack(false);
+      } else if (currentView === 'shelf') {
+        currentView = 'empty';
+        showEmpty('搜索你想看的小说，开始阅读吧～');
+      }
+    }
+
+    function registerHandler(eventName, selector, handler) {
+      document.addEventListener(eventName, function(e) {
+        var target = e.target.closest(selector);
+        if (target) handler.call(target, e, target);
+      });
+    }
+
+    registerHandler('click', '[data-action="novel-back"]', function() {
+      goBack();
+    });
+
+    registerHandler('click', '[data-action="novel-shelf"]', function() {
+      showShelf();
+    });
+
+    registerHandler('click', '[data-action="novel-search"]', function() {
+      doNovelSearch();
+    });
+
+    registerHandler('click', '[data-action="novel-detail"]', async function(e, el) {
+      var idx = parseInt(el.dataset.index);
+      if (currentSearchResults[idx]) {
+        showLoading();
+        try {
+          var detail = await fetchNovelDetail(currentSearchResults[idx].searchKey);
+          if (detail) {
+            showNovelDetail(detail);
+          } else {
+            showEmpty('获取小说详情失败');
+          }
+        } catch(e) {
+          console.error('获取详情失败:', e);
+          showEmpty('获取小说详情失败');
+        }
+      }
+    });
+
+    registerHandler('click', '[data-action="shelf-detail"]', function(e, el) {
+      e.stopPropagation();
+      var key = el.dataset.key;
+      var novel = followedNovels[key];
+      if (novel) {
+        showNovelDetail(novel);
+      }
+    });
+
+    registerHandler('click', '[data-action="remove-follow"]', function(e, el) {
+      e.stopPropagation();
+      var key = el.dataset.key;
+      if (confirm('确定要从书架移除吗？')) {
+        delete followedNovels[key];
+        saveFollowed();
+        showShelf();
+      }
+    });
+
+    registerHandler('click', '[data-action="toggle-desc"]', function() {
+      var desc = document.getElementById('novelDesc');
+      var btn = document.getElementById('descExpand');
+      if (desc) {
+        desc.classList.toggle('expanded');
+        if (btn) btn.textContent = desc.classList.contains('expanded') ? '收起简介' : '展开简介';
+      }
+    });
+
+    registerHandler('click', '[data-action="start-read"]', function() {
+      if (!currentNovel) return;
+      var history = getHistory(currentNovel.searchKey);
+      var startIdx = 0;
+      if (history && history.chapterIndex) {
+        for (var i = 0; i < currentChapters.length; i++) {
+          if (currentChapters[i].index === history.chapterIndex) {
+            startIdx = i;
+            break;
+          }
+        }
+      }
+      loadChapter(startIdx);
+    });
+
+    registerHandler('click', '[data-action="toggle-follow"]', function(e, el) {
+      if (!currentNovel) return;
+      var nowFollowed = toggleFollow(currentNovel);
+      if (nowFollowed) {
+        el.classList.remove('secondary');
+        el.classList.add('followed');
+        el.innerHTML = '❤️ 已加入书架';
+      } else {
+        el.classList.remove('followed');
+        el.classList.add('secondary');
+        el.innerHTML = '＋ 加入书架';
+      }
+    });
+
+    registerHandler('click', '[data-action="read-chapter"]', function(e, el) {
+      var idx = parseInt(el.dataset.index);
+      loadChapter(idx);
+    });
+
+    registerHandler('click', '[data-action="prev-chapter"]', function() {
+      if (currentChapterIndex > 0) loadChapter(currentChapterIndex - 1);
+    });
+
+    registerHandler('click', '[data-action="next-chapter"]', function() {
+      if (currentChapterIndex < currentChapters.length - 1) loadChapter(currentChapterIndex + 1);
+    });
+
+    registerHandler('click', '[data-action="reader-back"]', function() {
+      goBack();
+    });
+
+    registerHandler('click', '[data-action="toggle-bookmark"]', function(e, el) {
+      if (!currentNovel) return;
+      var chIdx = currentChapters[currentChapterIndex].index;
+      var bms = {};
+      try { bms = JSON.parse(localStorage.getItem('suyu-novel-bookmarks') || '{}'); } catch(e) {}
+      if (!bms[currentNovel.searchKey]) bms[currentNovel.searchKey] = {};
+      if (bms[currentNovel.searchKey][chIdx]) {
+        delete bms[currentNovel.searchKey][chIdx];
+        el.classList.remove('active');
+      } else {
+        bms[currentNovel.searchKey][chIdx] = {
+          title: currentChapters[currentChapterIndex].title,
+          time: Date.now()
+        };
+        el.classList.add('active');
+      }
+      localStorage.setItem('suyu-novel-bookmarks', JSON.stringify(bms));
+    });
+
+    registerHandler('click', '[data-action="toggle-settings"]', function() {
+      settingsPanel.classList.toggle('show');
+    });
+
+    registerHandler('click', '[data-action="font-inc"]', function() {
+      if (readerFontSize < 28) {
+        readerFontSize += 2;
+        saveSettings();
+        applyReaderSettings();
+      }
+    });
+
+    registerHandler('click', '[data-action="font-dec"]', function() {
+      if (readerFontSize > 12) {
+        readerFontSize -= 2;
+        saveSettings();
+        applyReaderSettings();
+      }
+    });
+
+    registerHandler('click', '.bg-option', function(e, el) {
+      readerBg = el.dataset.bg;
+      saveSettings();
+      applyReaderSettings();
+    });
+
+    window.addEventListener('scroll', function() {
+      if (currentView !== 'reader') return;
+      var scrollTop = window.scrollY;
+      var docHeight = document.documentElement.scrollHeight - window.innerHeight;
+      var progress = docHeight > 0 ? (scrollTop / docHeight) * 100 : 0;
+      progressFill.style.width = progress + '%';
+    }, { passive: true });
+
+    document.addEventListener('keydown', function(e) {
+      if (currentView !== 'reader') return;
+      var tag = (e.target.tagName || '').toLowerCase();
+      if (tag === 'input' || tag === 'textarea') return;
+      if (e.key === 'ArrowLeft') {
+        if (currentChapterIndex > 0) loadChapter(currentChapterIndex - 1);
+      } else if (e.key === 'ArrowRight') {
+        if (currentChapterIndex < currentChapters.length - 1) loadChapter(currentChapterIndex + 1);
+      } else if (e.key === 'Escape') {
+        goBack();
+      }
+    });
+
+    window.doNovelSearch = doNovelSearch;
+
+    loadFollowed();
+    loadHistory();
+    loadSettings();
+    safeLucide();
+
+    if (navigator.onLine === false) {
+      showShelf();
+    }
+  </script>
+</body>
+</html>
