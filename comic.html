@@ -1981,10 +1981,10 @@
     ];
 
     var CORS_PROXIES = [
-      function(url) { return 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url); },
+      function(url) { return 'https://corsproxy.org/?' + url; },
       function(url) { return 'https://corsproxy.io/?url=' + encodeURIComponent(url); },
+      function(url) { return 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url); },
       function(url) { return 'https://api.codetabs.com/v1/proxy/?quest=' + encodeURIComponent(url); },
-      function(url) { return 'https://api.allorigins.win/get?url=' + encodeURIComponent(url); },
       function(url) { return 'https://api.whateverorigin.org/get?url=' + encodeURIComponent(url); }
     ];
 
@@ -2328,13 +2328,16 @@
 
     function fixProxyUrl(url, baseUrl) {
       if (!url) return '';
-      url = url.replace(/https?:\/\/api\.allorigins\.win/g, '');
+      // corsproxy.org/?URL
+      url = url.replace(/https?:\/\/corsproxy\.org\//g, '');
+      // corsproxy.io/?url=URL
       url = url.replace(/https?:\/\/corsproxy\.io\/?\?url=[^&]*/g, function(m) {
         try {
           var u = m.match(/url=([^&]+)/);
           return u ? decodeURIComponent(u[1]) : '';
         } catch(e) { return ''; }
       });
+      url = url.replace(/https?:\/\/api\.allorigins\.win/g, '');
       url = url.replace(/https?:\/\/api\.codetabs\.com\/v1\/proxy\/\?quest=/g, '');
       url = url.replace(/https?:\/\/api\.whateverorigin\.org\/get\?url=/g, '');
       if (url && url.indexOf('http') !== 0 && url.charAt(0) === '/') {
