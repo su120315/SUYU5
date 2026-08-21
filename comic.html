@@ -500,12 +500,13 @@
 
     .comic-next-chapter-fab {
       position: fixed;
-      bottom: 24px;
-      right: 20px;
-      left: 20px;
+      bottom: 0;
+      left: 0;
+      right: 0;
       z-index: 200;
       display: flex;
       justify-content: center;
+      padding: 12px 20px calc(env(safe-area-inset-bottom, 0px) + 12px);
       pointer-events: none;
       opacity: 0;
       transform: translateY(20px);
@@ -522,17 +523,18 @@
       display: inline-flex;
       align-items: center;
       gap: 8px;
-      padding: 14px 28px;
+      padding: 12px 24px;
       border-radius: 100px;
       background: var(--gradient);
       color: #fff;
-      font-size: 1rem;
+      font-size: 0.95rem;
       font-weight: 600;
       font-family: var(--font-body);
       border: none;
       cursor: pointer;
       box-shadow: 0 8px 30px rgba(99, 102, 241, 0.4);
       transition: transform 0.2s, box-shadow 0.2s;
+      max-width: 90%;
     }
 
     .comic-next-chapter-fab-btn:hover {
@@ -1002,6 +1004,15 @@
       .comic-header-actions .back-home i {
         width: 14px;
         height: 14px;
+      }
+
+      .comic-next-chapter-fab {
+        padding: 10px 16px calc(env(safe-area-inset-bottom, 0px) + 10px);
+      }
+
+      .comic-next-chapter-fab-btn {
+        padding: 10px 20px;
+        font-size: 0.9rem;
       }
     }
 
