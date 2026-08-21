@@ -67,11 +67,19 @@
       font-size: 0.9rem;
       text-decoration: none;
       transition: background 0.3s, color 0.3s, transform 0.3s;
+      white-space: nowrap;
     }
 
     .back-home:hover {
       border-color: var(--accent-primary);
       transform: translateX(-2px);
+    }
+
+    .comic-header-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
     }
 
     .comic-search-bar {
@@ -683,6 +691,19 @@
     }
 
     /* ==================== 主题按钮 ==================== */
+    .comic-theme-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 12px;
+      border-radius: 100px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--bg-tertiary);
+      color: var(--text-primary);
+      cursor: pointer;
+      transition: background 0.3s, color 0.3s, transform 0.3s;
+    }
+
     .comic-theme-btn:hover {
       border-color: var(--accent-primary);
       transform: scale(1.05);
@@ -885,6 +906,56 @@
 
       .comic-search-wrap {
         max-width: 100%;
+      }
+
+      .comic-header-actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        grid-template-areas:
+          "back-home theme-btn"
+          "library offline";
+        gap: 8px;
+        width: 100%;
+      }
+
+      .comic-header-actions .back-home {
+        grid-area: back-home;
+        padding: 8px 12px;
+        justify-content: flex-start;
+      }
+
+      .comic-header-actions .back-home .back-home-text {
+        display: inline;
+      }
+
+      .comic-header-actions .comic-theme-btn {
+        grid-area: theme-btn;
+        justify-self: end;
+        width: 36px;
+        height: 36px;
+        padding: 0;
+        border-radius: 50%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0;
+      }
+
+      .comic-header-actions .followed-library-btn {
+        grid-area: library;
+        width: 100%;
+        justify-content: center;
+      }
+
+      .comic-header-actions .offline-library-btn {
+        grid-area: offline;
+        width: 100%;
+        justify-content: center;
+      }
+
+      .comic-header-actions .back-home i {
+        width: 14px;
+        height: 14px;
       }
     }
 
@@ -1656,8 +1727,12 @@
         漫画阅读
         <span class="badge">纯净版</span>
       </h1>
-      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
-        <button class="comic-theme-btn" onclick="toggleComicTheme();event.stopPropagation();" title="切换主题" style="display:inline-flex;align-items:center;gap:6px;padding:8px 12px;border-radius:100px;background:var(--bg-secondary);border:1px solid var(--bg-tertiary);color:var(--text-primary);cursor:pointer;transition:all 0.3s;">
+      <div class="comic-header-actions">
+        <a href="https://su120315.github.io/SUYU/" class="back-home" title="返回主页">
+          <i data-lucide="arrow-left" style="width:16px;height:16px;"></i>
+          <span class="back-home-text">返回主页</span>
+        </a>
+        <button class="comic-theme-btn" onclick="toggleComicTheme();event.stopPropagation();" title="切换主题">
           <i data-lucide="moon" style="width:16px;height:16px;"></i>
         </button>
         <button class="followed-library-btn" id="followedLibraryBtn" title="我追的漫画">
@@ -1668,10 +1743,6 @@
           <i data-lucide="library" style="width:16px;height:16px;"></i>
           离线书架
         </button>
-        <a href="https://su120315.github.io/SUYU/" class="back-home">
-          <i data-lucide="arrow-left" style="width:16px;height:16px;"></i>
-          返回主页
-        </a>
       </div>
     </div>
 
