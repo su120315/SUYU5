@@ -498,6 +498,52 @@
       gap: 10px;
     }
 
+    .comic-next-chapter-fab {
+      position: fixed;
+      bottom: 24px;
+      right: 20px;
+      left: 20px;
+      z-index: 200;
+      display: flex;
+      justify-content: center;
+      pointer-events: none;
+      opacity: 0;
+      transform: translateY(20px);
+      transition: opacity 0.3s, transform 0.3s;
+    }
+
+    .comic-next-chapter-fab.visible {
+      opacity: 1;
+      transform: translateY(0);
+      pointer-events: auto;
+    }
+
+    .comic-next-chapter-fab-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 28px;
+      border-radius: 100px;
+      background: var(--gradient);
+      color: #fff;
+      font-size: 1rem;
+      font-weight: 600;
+      font-family: var(--font-body);
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 8px 30px rgba(99, 102, 241, 0.4);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .comic-next-chapter-fab-btn:hover {
+      transform: scale(1.03);
+      box-shadow: 0 10px 35px rgba(99, 102, 241, 0.5);
+    }
+
+    .comic-next-chapter-fab-btn:active {
+      transform: scale(0.97);
+    }
+
     .auto-scroll-controls {
       display: inline-flex;
       align-items: center;
@@ -4033,10 +4079,16 @@
     }
 
     function recordReadingHistory(comicUrl, title, chapterIndex, chapterTitle) {
+      var scrollPct = 0;
+      try {
+        var docH = document.documentElement.scrollHeight - window.innerHeight;
+        scrollPct = docH > 0 ? Math.round((window.scrollY / docH) * 100) : 0;
+      } catch(e) {}
       readingHistory[comicUrl] = {
         title: title,
         chapterIndex: chapterIndex,
         chapterTitle: chapterTitle,
+        scrollPct: scrollPct,
         timestamp: Date.now()
       };
       saveReadingHistory();
@@ -4208,6 +4260,30 @@
       var label = document.getElementById('readerProgressLabel');
       if (!bar || !fill || !label) return;
 
+      var fabEl = document.getElementById('comicNextChapterFab');
+      var readerImagesEl = document.getElementById('comicReaderImages');
+
+      function updateNextChapterFab() {
+        if (!fabEl || !readerImagesEl) return;
+        var imgs = readerImagesEl.querySelectorAll('.comic-image-wrap');
+        var total = imgs.length;
+        if (total === 0) return;
+        var lastN = Math.min(3, total);
+        var startIdx = total - lastN;
+        var lastImg = imgs[total - 1];
+        var thresholdImg = imgs[startIdx];
+        if (!lastImg || !thresholdImg) return;
+        var viewportBottom = window.scrollY + window.innerHeight;
+        var thresholdTop = thresholdImg.getBoundingClientRect().top + window.scrollY;
+        var lastTop = lastImg.getBoundingClientRect().top + window.scrollY;
+        var halfway = thresholdTop + (lastTop - thresholdTop) * 0.35;
+        if (viewportBottom >= halfway) {
+          fabEl.classList.add('visible');
+        } else {
+          fabEl.classList.remove('visible');
+        }
+      }
+
       function updateProgress() {
         var scrollTop = window.scrollY;
         var docHeight = document.documentElement.scrollHeight - window.innerHeight;
@@ -4216,6 +4292,7 @@
         if (progress > 100) progress = 100;
         fill.style.width = progress + '%';
         label.textContent = Math.round(progress) + '%';
+        updateNextChapterFab();
       }
 
       // 移除旧的监听器
@@ -4369,11 +4446,22 @@
           updateFollowedProgress(currentComicUrl, index, chapter.title);
         } catch(e) { console.warn('记录阅读历史失败:', e); }
 
+        var hasNextChapterBtn = index < currentChapters.length - 1;
+        var nextChapterFabHtml = hasNextChapterBtn
+          ? '<div class="comic-next-chapter-fab" id="comicNextChapterFab">' +
+              '<button class="comic-next-chapter-fab-btn" data-action="chapter-next" data-index="' + (index + 1) + '">' +
+                '<i data-lucide="chevron-right" style="width:20px;height:20px;"></i>' +
+                '下一章' +
+              '</button>' +
+            '</div>'
+          : '';
+
         content.innerHTML =
           '<div class="reader-progress-bar" id="readerProgressBar">' +
             '<div class="reader-progress-fill" id="readerProgressFill" style="width:0%;"></div>' +
           '</div>' +
           '<div class="reader-progress-label" id="readerProgressLabel">0%</div>' +
+          nextChapterFabHtml +
           '<div class="comic-reader">' +
             '<button class="comic-back-btn" data-action="back-detail">' +
               '<i data-lucide="arrow-left" style="width:16px;height:16px;"></i>' +
@@ -4424,6 +4512,34 @@
               });
             }
           })(loadedImgs[li], placeholders[li]);
+        }
+
+        // 自动滚动到上次阅读位置
+        var hist = getReadingHistory(currentComicUrl);
+        if (hist && hist.chapterIndex === index && typeof hist.scrollPct === 'number' && hist.scrollPct > 0) {
+          var savedPct = hist.scrollPct;
+          var restoreScroll = function() {
+            var docH = document.documentElement.scrollHeight - window.innerHeight;
+            if (docH > 0) {
+              window.scrollTo({ top: docH * savedPct / 100, behavior: 'auto' });
+            }
+          };
+          setTimeout(function() {
+            restoreScroll();
+            setTimeout(function() {
+              if (typeof readerScrollHandler === 'function') {
+                readerScrollHandler();
+              }
+            }, 120);
+          }, 300);
+          window.addEventListener('load', function() {
+            restoreScroll();
+            setTimeout(function() {
+              if (typeof readerScrollHandler === 'function') {
+                readerScrollHandler();
+              }
+            }, 120);
+          }, { once: true });
         }
 
         // 预加载下一章和上一章的图片（离线模式跳过）
