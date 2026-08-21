@@ -21,6 +21,7 @@
       max-width: 900px;
       margin: 0 auto;
       padding: 140px 24px 60px;
+      contain: layout style;
     }
     .novel-header-bar {
       position: fixed;
@@ -49,7 +50,7 @@
       align-items: center;
       justify-content: center;
       flex-shrink: 0;
-      transition: all 0.2s;
+      transition: background 0.2s, color 0.2s, transform 0.2s;
     }
     .novel-back-btn:hover {
       background: var(--accent-primary);
@@ -70,7 +71,7 @@
       font-size: 0.95rem;
       font-family: var(--font-body);
       outline: none;
-      transition: all 0.3s;
+      transition: border-color 0.3s, box-shadow 0.3s;
     }
     .novel-search-input:focus {
       border-color: var(--accent-primary);
@@ -119,7 +120,7 @@
       font-size: 0.85rem;
       font-family: var(--font-body);
       white-space: nowrap;
-      transition: all 0.2s;
+      transition: background 0.2s, color 0.2s, transform 0.2s;
     }
     .novel-shelf-btn:hover {
       transform: translateY(-1px);
@@ -163,15 +164,19 @@
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
       gap: 16px;
+      content-visibility: auto;
+      contain-intrinsic-size: auto 240px;
     }
     .novel-card {
       background: var(--bg-secondary);
       border-radius: 12px;
       overflow: hidden;
       cursor: pointer;
-      transition: all 0.25s;
+      transition: transform 0.25s, border-color 0.25s, box-shadow 0.25s;
       border: 1px solid var(--bg-tertiary);
       position: relative;
+      will-change: transform;
+      transform: translateZ(0);
     }
     .novel-card:hover {
       transform: translateY(-3px);
@@ -346,7 +351,7 @@
       display: flex;
       align-items: center;
       gap: 6px;
-      transition: all 0.2s;
+      transition: background 0.2s, color 0.2s, transform 0.2s;
       font-weight: 500;
     }
     .novel-action-btn.primary {
@@ -398,6 +403,8 @@
       max-height: 400px;
       overflow-y: auto;
       padding: 4px;
+      content-visibility: auto;
+      contain-intrinsic-size: auto 400px;
     }
     .novel-chapter-item {
       padding: 10px 14px;
@@ -405,7 +412,7 @@
       font-size: 0.85rem;
       color: var(--text-secondary);
       cursor: pointer;
-      transition: all 0.15s;
+      transition: background 0.15s, color 0.15s;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -481,7 +488,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      transition: all 0.2s;
+      transition: background 0.2s, color 0.2s, transform 0.2s;
       flex-shrink: 0;
     }
     .novel-reader-icon-btn:hover {
@@ -500,6 +507,7 @@
       font-size: 18px;
       color: var(--text-primary);
       text-align: justify;
+      contain: layout style;
     }
     .novel-reader-content p {
       margin-bottom: 1.2em;
@@ -522,7 +530,7 @@
       cursor: pointer;
       font-size: 0.9rem;
       font-family: var(--font-body);
-      transition: all 0.2s;
+      transition: background 0.2s, color 0.2s, transform 0.2s;
       border: 1px solid var(--bg-tertiary);
     }
     .novel-reader-nav button:hover:not(:disabled) {
@@ -582,7 +590,7 @@
       align-items: center;
       justify-content: center;
       font-size: 0.9rem;
-      transition: all 0.15s;
+      transition: background 0.15s, color 0.15s, transform 0.15s;
     }
     .reader-settings-btn:hover {
       border-color: var(--accent-primary);
@@ -609,7 +617,7 @@
       border-radius: 50%;
       cursor: pointer;
       border: 2px solid transparent;
-      transition: all 0.2s;
+      transition: background 0.2s, color 0.2s, border-color 0.2s;
     }
     .bg-option.active {
       border-color: var(--accent-primary);
@@ -1247,7 +1255,7 @@
         var safeTitle = escapeHtml(novel.title);
         var safeAuthor = escapeHtml(novel.author || '未知作者');
         var coverHtml = novel.cover
-          ? '<img src="' + escapeHtml(novel.cover) + '" alt="' + safeTitle + '" referrerpolicy="no-referrer" onerror="this.parentElement.innerHTML=\'<span style=font-size:2rem;>📖</span>\'">'
+          ? '<img src="' + escapeHtml(novel.cover) + '" alt="' + safeTitle + '" referrerpolicy="no-referrer" loading="lazy" decoding="async" onerror="this.parentElement.innerHTML=\'<span style=font-size:2rem;>📖</span>\'">'
           : '<span style="font-size:2.5rem;">📖</span>';
         var metaText = novel.category || (novel.update ? '更新于 ' + novel.update : '');
         html += '<div class="novel-card" data-action="novel-detail" data-index="' + i + '">'
@@ -1277,7 +1285,7 @@
       var history = getHistory(novel.searchKey);
 
       var coverHtml = novel.cover
-        ? '<img src="' + escapeHtml(novel.cover) + '" alt="' + safeTitle + '" referrerpolicy="no-referrer" onerror="this.parentElement.innerHTML=\'<span style=font-size:3rem;>📖</span>\'">'
+        ? '<img src="' + escapeHtml(novel.cover) + '" alt="' + safeTitle + '" referrerpolicy="no-referrer" loading="lazy" decoding="async" onerror="this.parentElement.innerHTML=\'<span style=font-size:3rem;>📖</span>\'">'
         : '<span style="font-size:3.5rem;">📖</span>';
 
       var tagsHtml = '';
@@ -1458,7 +1466,7 @@
         var safeTitle = escapeHtml(novel.title);
         var safeAuthor = escapeHtml(novel.author || '未知作者');
         var coverHtml = novel.cover
-          ? '<img src="' + escapeHtml(novel.cover) + '" alt="' + safeTitle + '" referrerpolicy="no-referrer" onerror="this.parentElement.innerHTML=\'<span style=font-size:2rem;>📖</span>\'">'
+          ? '<img src="' + escapeHtml(novel.cover) + '" alt="' + safeTitle + '" referrerpolicy="no-referrer" loading="lazy" decoding="async" onerror="this.parentElement.innerHTML=\'<span style=font-size:2rem;>📖</span>\'">'
           : '<span style="font-size:2.5rem;">📖</span>';
         var progressText = novel.lastReadTitle ? '看到：' + escapeHtml(novel.lastReadTitle) : (novel.totalChapters ? novel.totalChapters + ' 章' : '');
         html += '<div class="novel-card" data-action="shelf-detail" data-key="' + escapeHtml(keys[i]) + '">'

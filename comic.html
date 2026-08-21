@@ -23,6 +23,7 @@
       background: var(--bg-primary);
       color: var(--text-primary);
       transition: background 0.3s, color 0.3s;
+      contain: layout style;
     }
 
     .comic-header {
@@ -65,7 +66,7 @@
       color: var(--text-primary);
       font-size: 0.9rem;
       text-decoration: none;
-      transition: all 0.3s;
+      transition: background 0.3s, color 0.3s, transform 0.3s;
     }
 
     .back-home:hover {
@@ -142,7 +143,7 @@
       color: var(--text-secondary);
       font-size: 0.85rem;
       cursor: pointer;
-      transition: all 0.3s;
+      transition: background 0.3s, color 0.3s, border-color 0.3s;
       user-select: none;
     }
 
@@ -160,6 +161,8 @@
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
       gap: 16px;
+      content-visibility: auto;
+      contain-intrinsic-size: auto 240px;
     }
 
     .comic-card {
@@ -168,7 +171,9 @@
       overflow: hidden;
       background: var(--bg-secondary);
       border: 1px solid var(--bg-tertiary);
-      transition: all 0.3s;
+      transition: transform 0.3s, border-color 0.3s, box-shadow 0.3s;
+      will-change: transform;
+      transform: translateZ(0);
     }
 
     .comic-card:hover {
@@ -264,7 +269,7 @@
       color: var(--text-primary);
       font-size: 0.88rem;
       cursor: pointer;
-      transition: all 0.3s;
+      transition: background 0.3s, color 0.3s, transform 0.3s;
       display: inline-flex;
       align-items: center;
       gap: 6px;
@@ -370,7 +375,7 @@
       font-size: 0.9rem;
       cursor: pointer;
       margin-bottom: 20px;
-      transition: all 0.3s;
+      transition: background 0.3s, color 0.3s, transform 0.3s;
     }
 
     .comic-back-btn:hover {
@@ -381,6 +386,8 @@
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
       gap: 8px;
+      content-visibility: auto;
+      contain-intrinsic-size: auto 400px;
     }
 
     .chapter-item {
@@ -391,7 +398,7 @@
       font-size: 0.88rem;
       color: var(--text-primary);
       cursor: pointer;
-      transition: all 0.2s;
+      transition: background 0.2s, color 0.2s;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
@@ -423,6 +430,7 @@
       gap: 0;
       will-change: transform;
       -webkit-overflow-scrolling: touch;
+      contain: layout style;
     }
 
     .comic-reader-images img {
@@ -432,6 +440,9 @@
       margin: 0;
       padding: 0;
       will-change: transform;
+      transform: translateZ(0);
+      content-visibility: auto;
+      contain-intrinsic-size: auto 1200px;
     }
 
     .comic-reader-nav {
@@ -451,7 +462,7 @@
       color: var(--text-primary);
       font-size: 0.9rem;
       cursor: pointer;
-      transition: all 0.3s;
+      transition: background 0.3s, color 0.3s, transform 0.3s;
       display: inline-flex;
       align-items: center;
       gap: 6px;
@@ -501,7 +512,7 @@
       border: none !important;
       cursor: pointer;
       color: var(--text-secondary);
-      transition: all 0.2s;
+      transition: background 0.2s, color 0.2s, transform 0.2s;
     }
 
     .auto-scroll-btn:hover {
@@ -591,7 +602,7 @@
       border: 1px solid var(--bg-tertiary);
       color: var(--text-secondary);
       cursor: pointer;
-      transition: all 0.2s;
+      transition: background 0.2s, color 0.2s;
       vertical-align: middle;
     }
 
@@ -617,7 +628,7 @@
       font-size: 0.85rem;
       border: none;
       cursor: pointer;
-      transition: all 0.3s;
+      transition: background 0.3s, color 0.3s, transform 0.3s;
     }
 
     .continue-reading-btn:hover {
@@ -652,7 +663,7 @@
       border-radius: 8px;
       font-size: 0.85rem;
       cursor: pointer;
-      transition: all 0.2s;
+      transition: background 0.2s, color 0.2s;
     }
 
     .bookmark-item:hover {
@@ -710,7 +721,7 @@
       color: var(--text-primary);
       font-size: 0.9rem;
       cursor: pointer;
-      transition: all 0.25s;
+      transition: background 0.25s, color 0.25s, transform 0.25s;
     }
 
     .follow-comic-btn:hover {
@@ -934,7 +945,7 @@
       color: var(--text-secondary);
       font-size: 0.82rem;
       cursor: pointer;
-      transition: all 0.25s;
+      transition: background 0.25s, color 0.25s, border-color 0.25s;
       user-select: none;
       display: flex;
       align-items: center;
@@ -978,6 +989,10 @@
       background: var(--bg-tertiary);
       margin: 0;
       padding: 0;
+      will-change: transform;
+      transform: translateZ(0);
+      content-visibility: auto;
+      contain-intrinsic-size: auto 1200px;
     }
 
     .comic-image-wrap {
@@ -1086,7 +1101,7 @@
       border-radius: 8px;
       color: var(--text-secondary);
       cursor: pointer;
-      transition: all 0.2s;
+      transition: background 0.2s, color 0.2s, transform 0.2s;
     }
 
     .chapter-quick-actions button:hover {
@@ -1106,7 +1121,7 @@
       background: var(--bg-secondary);
       border-radius: 8px;
       cursor: pointer;
-      transition: all 0.2s;
+      transition: background 0.2s, color 0.2s;
       font-weight: 600;
       color: var(--text-primary);
       font-size: 0.9rem;
@@ -1189,7 +1204,7 @@
       font-size: 0.95rem;
       font-weight: 500;
       cursor: pointer;
-      transition: all 0.3s;
+      transition: background 0.3s, color 0.3s, transform 0.3s;
     }
 
     .download-comic-btn:hover {
@@ -1225,7 +1240,7 @@
       color: #ef4444;
       font-size: 0.82rem;
       cursor: pointer;
-      transition: all 0.2s;
+      transition: background 0.2s, color 0.2s, transform 0.2s;
       white-space: nowrap;
     }
 
@@ -1312,7 +1327,7 @@
       color: var(--text-secondary);
       font-size: 0.85rem;
       cursor: pointer;
-      transition: all 0.2s;
+      transition: background 0.2s, color 0.2s, transform 0.2s;
     }
 
     .download-cancel-btn:hover {
@@ -1427,7 +1442,7 @@
       color: var(--text-secondary);
       font-size: 0.8rem;
       cursor: pointer;
-      transition: all 0.2s;
+      transition: background 0.2s, color 0.2s, transform 0.2s;
     }
 
     .chapter-select-toolbar button:hover {
@@ -1511,7 +1526,7 @@
       border-radius: 100px;
       font-size: 0.88rem;
       cursor: pointer;
-      transition: all 0.2s;
+      transition: background 0.2s, color 0.2s, transform 0.2s;
       border: none;
     }
 
@@ -3226,7 +3241,7 @@
         var imgCount = comic.totalImages || 0;
         var chCount = comic.chapters.length;
         var coverHtml = comic.cover
-          ? '<img class="comic-card-img" src="' + comic.cover + '" alt="' + safeTitle + '" loading="lazy" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'">' +
+          ? '<img class="comic-card-img" src="' + comic.cover + '" alt="' + safeTitle + '" loading="lazy" decoding="async" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'">' +
             '<div class="comic-card-img" style="display:none;align-items:center;justify-content:center;font-size:2rem;">📖</div>'
           : '<div class="comic-card-img" style="display:flex;align-items:center;justify-content:center;font-size:2rem;">📖</div>';
         html +=
@@ -3283,7 +3298,7 @@
         var safeUrl = (item.url || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
         var safeTitle = (item.title || '未知漫画').replace(/"/g, '&quot;');
         var coverHtml = item.cover
-          ? '<img class="comic-card-img" src="' + item.cover + '" alt="' + safeTitle + '" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'">' +
+          ? '<img class="comic-card-img" src="' + item.cover + '" alt="' + safeTitle + '" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'">' +
             '<div class="comic-card-img" style="display:none;align-items:center;justify-content:center;font-size:2rem;">📖</div>'
           : '<div class="comic-card-img" style="display:flex;align-items:center;justify-content:center;font-size:2rem;">📖</div>';
 
@@ -3394,7 +3409,7 @@
             '返回离线书架' +
           '</button>' +
           '<div class="comic-detail-header">' +
-            (comic.cover ? '<img class="comic-detail-cover" src="' + comic.cover + '" alt="' + safeTitle + '">' : '') +
+            (comic.cover ? '<img class="comic-detail-cover" src="' + comic.cover + '" alt="' + safeTitle + '" loading="lazy" decoding="async">' : '') +
             '<div class="comic-detail-meta">' +
               '<div class="comic-detail-title">' + safeTitle + '</div>' +
               (comic.author ? '<div class="comic-detail-author">' + comic.author + '</div>' : '') +
@@ -3502,7 +3517,7 @@
             var safeTitle = titleText.replace(/"/g, '&quot;');
             htmlStr +=
               '<div class="comic-card" data-action="comic-detail" data-url="' + safeHref + '" data-title="' + safeTitle + '">' +
-                (imgSrc ? '<img class="comic-card-img" src="' + imgSrc + '" alt="' + safeTitle + '" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display=\'none\'">' :
+                (imgSrc ? '<img class="comic-card-img" src="' + imgSrc + '" alt="' + safeTitle + '" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.style.display=\'none\'">' :
                  '<div class="comic-card-img" style="display:flex;align-items:center;justify-content:center;font-size:2rem;">📖</div>') +
                 '<div class="comic-card-info">' +
                   '<div class="comic-card-title">' + safeTitle + '</div>' +
@@ -3678,7 +3693,7 @@
             var safeTitle = titleText.replace(/"/g, '&quot;');
             htmlStr +=
               '<div class="comic-card" data-action="comic-detail" data-url="' + safeHref + '" data-title="' + safeTitle + '">' +
-                (imgSrc ? '<img class="comic-card-img" src="' + imgSrc + '" alt="' + safeTitle + '" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display=\'none\'">' :
+                (imgSrc ? '<img class="comic-card-img" src="' + imgSrc + '" alt="' + safeTitle + '" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.style.display=\'none\'">' :
                  '<div class="comic-card-img" style="display:flex;align-items:center;justify-content:center;font-size:2rem;">📖</div>') +
                 '<div class="comic-card-info">' +
                   '<div class="comic-card-title">' + safeTitle + '</div>' +
@@ -3892,7 +3907,7 @@
               '返回列表' +
             '</button>' +
             '<div class="comic-detail-header">' +
-              (coverSrc ? '<img class="comic-detail-cover" src="' + coverSrc + '" alt="' + safeTitle + '" referrerpolicy="no-referrer" onerror="this.style.display=\'none\'">' : '') +
+              (coverSrc ? '<img class="comic-detail-cover" src="' + coverSrc + '" alt="' + safeTitle + '" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.style.display=\'none\'">' : '') +
               '<div class="comic-detail-meta">' +
                 '<div class="comic-detail-title">' + safeTitle + '</div>' +
                 (authorText ? '<div class="comic-detail-author">' + authorText + '</div>' : '') +
@@ -4236,7 +4251,7 @@
           }
           imagesHtml +=
             '<div class="comic-image-wrap" data-src="' + imgSrc + '" data-backup-src="" data-index="' + img + '" style="min-height:200px;">' +
-              '<img src="' + imgSrc + '" alt="第' + (img + 1) + '页" referrerpolicy="no-referrer" ' +
+              '<img src="' + imgSrc + '" alt="第' + (img + 1) + '页" loading="lazy" decoding="async" referrerpolicy="no-referrer" ' +
                    'onerror="retryComicImage(this)" ' +
                    'onload="this.classList.add(\'loaded\');this.parentElement.style.minHeight=\'\'" ' +
                    'style="width:100%;display:block;">' +
