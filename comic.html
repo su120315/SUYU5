@@ -2123,13 +2123,20 @@
       }
     ];
 
-    var CORS_PROXIES = [
-      function(url) { return 'https://corsproxy.org/?' + url; },
-      function(url) { return 'https://corsproxy.io/?url=' + encodeURIComponent(url); },
+    // 自建 Cloudflare Worker 代理（代码见仓库里的 cf-proxy-worker.js）
+    // 部署后把域名填进下面这行即可生效；留空则自动跳过，只用公共代理兜底
+    var OWN_PROXY_BASE = '';
+
+    var CORS_PROXIES = [];
+    if (OWN_PROXY_BASE) {
+      CORS_PROXIES.push(function(url) { return OWN_PROXY_BASE + '/?url=' + encodeURIComponent(url); });
+    }
+    // 公共代理兜底（已移除失效的 corsproxy.io=401、corsproxy.org=跳转失效、whateverorigin=不通）
+    CORS_PROXIES.push(
       function(url) { return 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url); },
-      function(url) { return 'https://api.codetabs.com/v1/proxy/?quest=' + encodeURIComponent(url); },
-      function(url) { return 'https://api.whateverorigin.org/get?url=' + encodeURIComponent(url); }
-    ];
+      function(url) { return 'https://cors.eu.org/' + url; },
+      function(url) { return 'https://api.codetabs.com/v1/proxy/?quest=' + encodeURIComponent(url); }
+    );
 
     var currentSource = null;
     var currentDomainIndex = 0;
@@ -4671,12 +4678,15 @@
         }, 2000);
       }
     }
-    var CORS_IMAGE_PROXIES = [
+    var CORS_IMAGE_PROXIES = [];
+    if (OWN_PROXY_BASE) {
+      CORS_IMAGE_PROXIES.push(OWN_PROXY_BASE + '/?img=1&url=');
+    }
+    // 已移除失效的 corsproxy.io（401）与 cors-anywhere（服务已停）
+    CORS_IMAGE_PROXIES.push(
       'https://images.weserv.nl/?url=',
-      'https://api.allorigins.win/raw?url=',
-      'https://corsproxy.io/?url=',
-      'https://cors-anywhere.herokuapp.com/'
-    ];
+      'https://api.allorigins.win/raw?url='
+    );
 
     function retryComicImage(img) {
       var wrap = img.parentElement;
