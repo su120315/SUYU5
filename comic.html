@@ -1810,7 +1810,7 @@
       </div>
     </div>
 
-    <div class="source-selector" id="sourceSelector" style="display:none;">
+    <div class="source-selector" id="sourceSelector">
       <span class="source-selector-label">
         <i data-lucide="database" style="width:14px;height:14px;"></i>
         漫画源:
@@ -2024,7 +2024,7 @@
       {
         id: 'copymanga',
         name: '拷贝漫画',
-        domains: ['https://www.copymanga.site', 'https://www.copymanga.com', 'https://copymanga.site'],
+        domains: ['https://www.copymanga.site', 'https://copymanga.site', 'https://www.copymanga.com'],
         searchPath: '/search?q=',
         listPaths: {
           recommend: '/',
@@ -2051,6 +2051,7 @@
         name: '漫画柜',
         domains: ['https://www.manhuagui.com', 'https://m.manhuagui.com'],
         searchPath: '/s/',
+        searchSuffix: '.html',   // 漫画柜搜索地址必须是 /s/关键词.html，缺 .html 会 404
         listPaths: {
           recommend: '/',
           hot: '/rank/',
@@ -2074,7 +2075,7 @@
       {
         id: 'kanman',
         name: '看漫画',
-        domains: ['https://www.kanman.com', 'https://m.kanman.com'],
+        domains: ['https://m.kanman.com', 'https://www.kanman.com'],
         searchPath: '/search/?key=',
         listPaths: {
           recommend: '/',
@@ -2123,9 +2124,15 @@
       }
     ];
 
-    // 自建 Cloudflare Worker 代理（代码见仓库里的 cf-proxy-worker.js）
-    // 部署后把域名填进下面这行即可生效；留空则自动跳过，只用公共代理兜底
-    var OWN_PROXY_BASE = '';
+    // 漫画源优先级：把实测可用的源排到前面，避免首屏默认命中不可用的源
+    var SOURCE_PRIORITY = ['manhuagui', 'copymanga', 'kanman', 'baozimh', 'dmzj'];
+    COMIC_SOURCES.sort(function (a, b) {
+      return SOURCE_PRIORITY.indexOf(a.id) - SOURCE_PRIORITY.indexOf(b.id);
+    });
+
+    // 自建 Cloudflare Pages 代理（部署源码见仓库里的 cf-proxy-worker.js）
+    // 用 pages.dev 域名：实测 workers.dev 在国内被 DNS 污染，而 pages.dev 未污染、可正常解析
+    var OWN_PROXY_BASE = 'https://suyu-proxy.pages.dev';
 
     var CORS_PROXIES = [];
     if (OWN_PROXY_BASE) {
@@ -3761,7 +3768,7 @@
         '</div>';
 
       try {
-        var searchUrl = src.domains[currentDomainIndex] + src.searchPath + encodeURIComponent(keyword);
+        var searchUrl = src.domains[currentDomainIndex] + src.searchPath + encodeURIComponent(keyword) + (src.searchSuffix || '');
         var html = await fetchWithProxies(searchUrl, src.domains[0]);
         var doc = parseHTML(html);
 

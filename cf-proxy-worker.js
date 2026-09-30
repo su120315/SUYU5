@@ -23,9 +23,19 @@ const ALLOWED_HOSTS = [
   'mangacopy.com',
   'manhuagui.com',
   'mhgui.com',
+  'hamrealm.com',
   'kanman.com',
   'kanmanimg.com',
   'dmzj.com',
+  // 备选漫画源
+  'manhuadb.com',
+  'dm5.com',
+  'mangabz.com',
+  'gufengmh.com',
+  '1kkk.com',
+  'colamanga.com',
+  'manga2020.com',
+  'manhuaren.com',
   // 小说源（备用）
   'zongheng.com',
 ];
@@ -100,6 +110,14 @@ export default {
       'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
       // 不少漫画站开了防盗链，带上同源 Referer，避免图片 403
       'Referer': target.origin + '/',
+      // 补齐浏览器指纹类请求头，提高过反爬的成功率
+      'sec-ch-ua': '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
+      'sec-ch-ua-mobile': '?0',
+      'sec-ch-ua-platform': '"Windows"',
+      'Sec-Fetch-Dest': isImage ? 'image' : 'document',
+      'Sec-Fetch-Mode': 'no-cors',
+      'Sec-Fetch-Site': 'same-origin',
+      'Upgrade-Insecure-Requests': '1',
     });
 
     let upstream;
