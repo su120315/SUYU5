@@ -2061,7 +2061,7 @@
         comicUrlPattern: /\/comic\//,
         chapterUrlPattern: /\/comic\/.*?\.html/,
         selectors: {
-          card: ['.book-list li', '.comic-item', '[class*="book"][class*="item"]', '.mh-book', '.book-item'],
+          card: ['.book-result li', '.update-wrap li', '.book-list li', 'table.rank-detail tr', '.comic-item', '[class*="book"][class*="item"]', '.mh-book', '.book-item'],
           title: ['.book-title', 'h1', '.comic-title', '.mh-title'],
           author: ['.book-author', '.author', '.mh-author'],
           desc: ['.book-intro', '.description', '.mh-desc'],
@@ -2485,6 +2485,8 @@
 
     function fixProxyUrl(url, baseUrl) {
       if (!url) return '';
+      // 协议相对地址（//cdn.example.com/x.jpg）补全为 https
+      if (url.indexOf('//') === 0) return 'https:' + url;
       // corsproxy.org/?URL
       url = url.replace(/https?:\/\/corsproxy\.org\//g, '');
       // corsproxy.io/?url=URL
@@ -2626,6 +2628,163 @@
         }
       }
       return uniqueImages;
+    }
+
+    // ==================== 漫画柜（manhuagui）专属解码 ====================
+    // 漫画柜章节页把「图片文件名清单」用 LZString 压缩 + 自定义 packer 混淆后藏在
+    // 内联脚本里（普通正则会拿到 0 张图）。这里完整还原它的解码链路：
+    //   1. 取 packer 参数 ('payload',radix,count,'blob')
+    //   2. LZString.decompressFromBase64(blob) → 符号表（用 | 分隔）
+    //   3. 按 packer 规则把 payload 中的占位词替换回真实字符串 → SMH.imgData({...})
+    //   4. 图片地址 = https://<线路>.hamreus.com + path + files[i] + ?e=&m=
+    //      （与原站 core.js 的 getPath()/f() 拼接规则一致）
+    var LZStringMin = (function () {
+      var f = String.fromCharCode;
+      var b64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
+      var rev = null;
+      function getBaseValue(ch) {
+        if (!rev) {
+          rev = {};
+          for (var i = 0; i < b64.length; i++) rev[b64.charAt(i)] = i;
+        }
+        return rev[ch];
+      }
+      function decompress(length, resetValue, getNextValue) {
+        var dictionary = [], enlargeIn = 4, dictSize = 4, numBits = 3, entry = '', result = [];
+        var i, w, bits, resb, maxpower, power, c;
+        var data = { val: getNextValue(0), position: resetValue, index: 1 };
+        for (i = 0; i < 3; i++) dictionary[i] = i;
+        function readBits(n) {
+          bits = 0; maxpower = Math.pow(2, n); power = 1;
+          while (power != maxpower) {
+            resb = data.val & data.position;
+            data.position >>= 1;
+            if (data.position == 0) { data.position = resetValue; data.val = getNextValue(data.index++); }
+            bits |= (resb > 0 ? 1 : 0) * power;
+            power <<= 1;
+          }
+          return bits;
+        }
+        switch (readBits(2)) {
+          case 0: c = f(readBits(8)); break;
+          case 1: c = f(readBits(16)); break;
+          case 2: return '';
+        }
+        dictionary[3] = c;
+        w = c;
+        result.push(c);
+        while (true) {
+          if (data.index > length) return '';
+          c = readBits(numBits);
+          switch (c) {
+            case 0:
+              dictionary[dictSize++] = f(readBits(8));
+              c = dictSize - 1;
+              enlargeIn--;
+              break;
+            case 1:
+              dictionary[dictSize++] = f(readBits(16));
+              c = dictSize - 1;
+              enlargeIn--;
+              break;
+            case 2:
+              return result.join('');
+          }
+          if (enlargeIn == 0) { enlargeIn = Math.pow(2, numBits); numBits++; }
+          if (dictionary[c]) {
+            entry = dictionary[c];
+          } else if (c === dictSize) {
+            entry = w + w.charAt(0);
+          } else {
+            return null;
+          }
+          result.push(entry);
+          dictionary[dictSize++] = w + entry.charAt(0);
+          enlargeIn--;
+          w = entry;
+          if (enlargeIn == 0) { enlargeIn = Math.pow(2, numBits); numBits++; }
+        }
+      }
+      return {
+        decompressFromBase64: function (input) {
+          if (input == null || input === '') return null;
+          return decompress(input.length, 32, function (index) {
+            return getBaseValue(input.charAt(index));
+          });
+        }
+      };
+    })();
+
+    // hamreus 图片线路：实测 i/eu/us 三个老线路对服务器端请求返回 403，以下为可用线路
+    var MHG_IMG_HOSTS = ['us1', 'eu1', 'us3', 'eu2', 'us2'];
+
+    function proxifyImageUrl(realUrl) {
+      if (OWN_PROXY_BASE) return OWN_PROXY_BASE + '/?img=1&url=' + encodeURIComponent(realUrl);
+      return realUrl;
+    }
+
+    function decodeManhuaguiChapterImages(html) {
+      try {
+        var m = html.match(/window\["\\x65\\x76\\x61\\x6c"\]\(function\(p,a,c,k,e,d\)\{[\s\S]*?\}\('([\s\S]*?)',(\d+),(\d+),'([^']*)'\s*\[/);
+        if (!m) return null;
+        var payload = m[1];
+        var radix = parseInt(m[2], 10);
+        var count = parseInt(m[3], 10);
+        var blob = m[4];
+        var symStr = LZStringMin.decompressFromBase64(blob);
+        if (!symStr) return null;
+        var syms = symStr.split('|');
+        var digits = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        function unbase(n) {
+          if (n < radix) return digits.charAt(n);
+          return unbase(Math.floor(n / radix)) + digits.charAt(n % radix);
+        }
+        var map = {};
+        for (var ci = count - 1; ci >= 0; ci--) {
+          var key = unbase(ci);
+          map[key] = syms[ci] || key;
+        }
+        // 与原 packer 相同的替换方式：一次性替换所有词元
+        var js = payload.replace(/[0-9A-Za-z]+/g, function (token) {
+          return map[token] !== undefined ? map[token] : token;
+        });
+        var dataMatch = js.match(/imgData\(\s*(\{[\s\S]*\})\s*\)/);
+        var data = null;
+        if (dataMatch) {
+          // 桌面版结构：path + files（纯文件名）
+          data = JSON.parse(dataMatch[1]);
+        } else {
+          // 移动版结构：images 数组已是「路径 + 文件名」
+          var readerMatch = js.match(/reader\(\s*(\{[\s\S]*\})\s*\)/);
+          if (readerMatch) {
+            data = JSON.parse(readerMatch[1]);
+            data.path = '';
+            data.files = data.images;
+          }
+        }
+        if (!data || !data.files || !data.files.length) return null;
+
+        var query = '';
+        if (data.sl) {
+          var qs = [];
+          for (var sk in data.sl) {
+            if (Object.prototype.hasOwnProperty.call(data.sl, sk)) {
+              qs.push(sk + '=' + encodeURIComponent(data.sl[sk]));
+            }
+          }
+          if (qs.length) query = '?' + qs.join('&');
+        }
+        var images = [];
+        for (var fi = 0; fi < data.files.length; fi++) {
+          var real = 'https://' + MHG_IMG_HOSTS[0] + '.hamreus.com' + (data.path || '') + data.files[fi] + query;
+          images.push(proxifyImageUrl(real));
+        }
+        log('漫画柜解码成功: ' + images.length + ' 张图片');
+        return images;
+      } catch (e) {
+        log('漫画柜解码失败: ' + (e && e.message));
+        return null;
+      }
     }
 
     function findElements(doc, selectors, minCount) {
@@ -2801,8 +2960,17 @@
       }
       var doc = parseHTML(html);
       var images = [];
-      var scriptImages = extractImagesFromScript(html);
       var fromScript = false;
+
+      // 漫画柜：章节数据经 LZString + 自定义 packer 混淆，用专属解码器还原真实图片地址
+      if (src.id === 'manhuagui') {
+        var mhgImages = decodeManhuaguiChapterImages(html);
+        if (mhgImages && mhgImages.length) {
+          return { images: mhgImages, fromScript: true };
+        }
+      }
+
+      var scriptImages = extractImagesFromScript(html);
 
       if (scriptImages.length >= 5) {
         log('从脚本数据提取 ' + scriptImages.length + ' 张图片');
@@ -2880,12 +3048,17 @@
       }
 
       // === 第二阶段：代理竞速 ===
-      var proxies = [
+      var proxies = [];
+      // 自建代理能还原防盗链 Referer（漫画柜 hamreus 图片必须），放在首位
+      if (OWN_PROXY_BASE) {
+        proxies.push(function(u) { return OWN_PROXY_BASE + '/?img=1&url=' + encodeURIComponent(u); });
+      }
+      proxies.push(
         function(u) { return 'https://wsrv.nl/?url=' + encodeURIComponent(u.replace(/^https?:\/\//, '')); },
         function(u) { return 'https://images.weserv.nl/?url=' + encodeURIComponent(u.replace(/^https?:\/\//, '')); },
         function(u) { return 'https://api.codetabs.com/v1/proxy/?quest=' + encodeURIComponent(u); },
         function(u) { return 'https://corsproxy.io/?url=' + encodeURIComponent(u); }
-      ];
+      );
 
       var controllers = [];
       var promises = proxies.map(function(proxyFn, i) {
@@ -3629,13 +3802,17 @@
           if (!href || href === '#' || seenHrefs[href]) continue;
           seenHrefs[href] = true;
 
-          var titleEls = card.querySelectorAll('[class*="title"], h3, h4, [class*="name"]');
-          var titleText = '';
-          for (var t = 0; t < titleEls.length; t++) {
-            var txt = titleEls[t].textContent.trim();
-            if (txt && txt.length > 1 && txt.length < 50) {
-              titleText = txt;
-              break;
+          // 优先取带 title 属性的链接文字（漫画柜等站点把书名放在 <a title="书名">，直接取文本会拿到更新状态）
+          var titleAttrEl = card.querySelector('a[title]');
+          var titleText = titleAttrEl ? (titleAttrEl.getAttribute('title') || '').trim() : '';
+          if (!titleText) {
+            var titleEls = card.querySelectorAll('[class*="title"], h3, h4, [class*="name"]');
+            for (var t = 0; t < titleEls.length; t++) {
+              var txt = titleEls[t].textContent.trim();
+              if (txt && txt.length > 1 && txt.length < 50) {
+                titleText = txt;
+                break;
+              }
             }
           }
           if (!titleText && link) titleText = link.textContent.trim().substring(0, 30);
@@ -3818,11 +3995,15 @@
           if (!href || href === '#' || seenHrefs[href]) continue;
           seenHrefs[href] = true;
 
-          var titleEls = card.querySelectorAll('[class*="title"], h3, h4, [class*="name"]');
-          var titleText = '';
-          for (var t = 0; t < titleEls.length; t++) {
-            var txt = titleEls[t].textContent.trim();
-            if (txt && txt.length > 1 && txt.length < 50) { titleText = txt; break; }
+          // 优先取带 title 属性的链接文字（漫画柜等站点把书名放在 <a title="书名">，直接取文本会拿到更新状态）
+          var titleAttrEl = card.querySelector('a[title]');
+          var titleText = titleAttrEl ? (titleAttrEl.getAttribute('title') || '').trim() : '';
+          if (!titleText) {
+            var titleEls = card.querySelectorAll('[class*="title"], h3, h4, [class*="name"]');
+            for (var t = 0; t < titleEls.length; t++) {
+              var txt = titleEls[t].textContent.trim();
+              if (txt && txt.length > 1 && txt.length < 50) { titleText = txt; break; }
+            }
           }
           if (!titleText && link) titleText = link.textContent.trim().substring(0, 30);
 
@@ -4436,6 +4617,20 @@
 
         stopAutoScroll();
 
+        // 有些站点的章节图片是页面脚本动态生成的，静态解析拿不到。
+        // 这种情况退回「原页嵌入」模式：经自建代理加载原章节页
+        // （代理已注入 <base> 让站内资源回原站加载，并去掉了防嵌套响应头）。
+        var iframeFallbackHtml = '';
+        if (!imagesHtml && chapter.url && OWN_PROXY_BASE) {
+          iframeFallbackHtml =
+            '<iframe class="comic-reader-iframe" src="' + OWN_PROXY_BASE + '/?url=' + encodeURIComponent(chapter.url) + '" ' +
+              'style="width:100%;height:78vh;border:0;border-radius:10px;background:#fff;" ' +
+              'referrerpolicy="no-referrer" loading="lazy"></iframe>' +
+            '<p style="text-align:center;color:var(--text-muted);font-size:0.75rem;padding:10px 0;line-height:1.8;">' +
+              '该源的图片由原站脚本动态加载，已自动切换为「原页嵌入」模式' +
+            '</p>';
+        }
+
         var autoScrollControls =
           '<span class="auto-scroll-controls">' +
             '<button class="auto-scroll-btn auto-scroll-minus-btn" title="减慢速度" onclick="decreaseAutoScrollSpeed();event.stopPropagation();">' +
@@ -4502,7 +4697,7 @@
               nextBtn +
             '</div>' +
             '<div class="comic-reader-images" id="comicReaderImages">' +
-              (imagesHtml || '<p style="text-align:center;color:var(--text-muted);padding:40px;">本章节暂无图片数据</p>') +
+              (imagesHtml || iframeFallbackHtml || '<p style="text-align:center;color:var(--text-muted);padding:40px;">本章节暂无图片数据</p>') +
             '</div>' +
             '<div class="comic-reader-nav" style="margin-top:24px;">' + prevBtn +
               '<span class="nav-center">' + (index + 1) + ' / ' + currentChapters.length + autoScrollControls + '</span>' +
@@ -4721,6 +4916,22 @@
 
       retryCount++;
       wrap.setAttribute('data-retry-count', retryCount.toString());
+
+      // 漫画柜图片：在原图 CDN 的可用线路之间轮换重试（绕开单线路 403 / 超时）
+      var proxyPrefix = OWN_PROXY_BASE ? (OWN_PROXY_BASE + '/?img=1&url=') : '';
+      var realSrc = originalSrc;
+      if (proxyPrefix && originalSrc.indexOf(proxyPrefix) === 0) {
+        try { realSrc = decodeURIComponent(originalSrc.substring(proxyPrefix.length)); } catch (e) { realSrc = originalSrc; }
+      }
+      if (realSrc.indexOf('.hamreus.com') !== -1) {
+        var mhMatch = realSrc.match(/\/\/([a-z0-9]+)\.hamreus\.com/i);
+        var curHost = mhMatch ? mhMatch[1].toLowerCase() : MHG_IMG_HOSTS[0];
+        var nextHost = MHG_IMG_HOSTS[(MHG_IMG_HOSTS.indexOf(curHost) + retryCount) % MHG_IMG_HOSTS.length];
+        var rotated = realSrc.replace(/\/\/[a-z0-9]+\.hamreus\.com/i, '//' + nextHost + '.hamreus.com');
+        log('图片重试 (' + retryCount + ') 切换漫画柜线路: ' + nextHost);
+        img.src = proxifyImageUrl(rotated);
+        return;
+      }
 
       var proxyUrl = CORS_IMAGE_PROXIES[(retryCount - 1) % CORS_IMAGE_PROXIES.length];
       var newSrc = proxyUrl + encodeURIComponent(originalSrc);

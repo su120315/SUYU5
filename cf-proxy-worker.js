@@ -42,6 +42,36 @@ const ALLOWED_HOSTS = [
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
 
+// 防盗链还原：不同漫画站的图片 CDN 要求的 Referer 不一样（例如漫画柜的 hamreus.com 必须带 manhuagui Referer，否则 403）
+const REFERER_MAP = [
+  ['hamreus.com', 'https://www.manhuagui.com/'],
+  ['mhgui.com', 'https://www.manhuagui.com/'],
+  ['manhuagui.com', 'https://www.manhuagui.com/'],
+  ['kanmanimg.com', 'https://www.kanman.com/'],
+  ['kanman.com', 'https://www.kanman.com/'],
+  ['bzmgcn.com', 'https://cn.bzmgcn.com/'],
+  ['baozimh.com', 'https://www.baozimh.com/'],
+  ['copymanga.site', 'https://www.copymanga.site/'],
+  ['mangacopy.com', 'https://www.mangacopy.com/'],
+  ['dmzj.com', 'https://www.dmzj.com/'],
+  ['manhuadb.com', 'https://www.manhuadb.com/'],
+  ['dm5.com', 'https://www.dm5.com/'],
+  ['mangabz.com', 'https://www.mangabz.com/'],
+  ['1kkk.com', 'https://www.1kkk.com/'],
+  ['gufengmh.com', 'https://www.gufengmh.com/'],
+  ['manhuaren.com', 'https://www.manhuaren.com/'],
+  ['colamanga.com', 'https://www.colamanga.com/'],
+];
+
+// 给目标地址挑一个能过防盗链的 Referer
+function pickReferer(hostname) {
+  const host = hostname.toLowerCase();
+  for (const [suffix, referer] of REFERER_MAP) {
+    if (host === suffix || host.endsWith('.' + suffix)) return referer;
+  }
+  return 'https://' + host + '/';
+}
+
 // 图片缓存时间（秒），漫画图片不会变，缓存久一点省流量、加载更快
 const IMAGE_CACHE_SECONDS = 604800;
 
@@ -108,8 +138,8 @@ export default {
         ? 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8'
         : 'text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.8',
       'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
-      // 不少漫画站开了防盗链，带上同源 Referer，避免图片 403
-      'Referer': target.origin + '/',
+      // 不少漫画站开了防盗链：带上该站要求的 Referer（如图片 CDN 需要原站 Referer），避免 403
+      'Referer': pickReferer(target.hostname),
       // 补齐浏览器指纹类请求头，提高过反爬的成功率
       'sec-ch-ua': '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
       'sec-ch-ua-mobile': '?0',
@@ -122,6 +152,10 @@ export default {
 
     let upstream;
     try {
+      // 透传浏览器带回的 Cookie，让需要会话校验的站点能正常返回真实内容
+      const incomingCookie = request.headers.get('Cookie');
+      if (incomingCookie) headers.set('Cookie', incomingCookie);
+
       upstream = await fetch(target.toString(), {
         method: request.method,
         headers: headers,
@@ -144,6 +178,29 @@ export default {
     }));
     if (isImage) {
       outHeaders.set('Cache-Control', 'public, max-age=' + IMAGE_CACHE_SECONDS + ', immutable');
+    }
+
+    // 把上游的 Set-Cookie 回传给浏览器（去掉 Domain，否则浏览器会因域名不匹配而丢弃）
+    try {
+      const raw = typeof upstream.headers.getSetCookie === 'function'
+        ? upstream.headers.getSetCookie()
+        : (upstream.headers.get('Set-Cookie') ? [upstream.headers.get('Set-Cookie')] : []);
+      for (const sc of raw) {
+        outHeaders.append('Set-Cookie', String(sc).replace(/;\s*Domain=[^;]+/i, ''));
+      }
+    } catch (e) { /* 忽略 cookie 处理异常 */ }
+
+    // HTML：注入 <base> 让页面内的相对资源回到原站加载，从而绕过那些"图片由 JS 动态加载"的站点。
+    // 同时不复制 X-Frame-Options / CSP，允许漫画页把它以 iframe 嵌入。
+    if (!isImage && /text\/html/i.test(contentType)) {
+      let text = await upstream.text();
+      if (!/<base\s/i.test(text)) {
+        const baseHref = target.toString().replace(/"/g, '&quot;');
+        text = /<head[^>]*>/i.test(text)
+          ? text.replace(/<head([^>]*)>/i, '<head$1><base href="' + baseHref + '">')
+          : '<base href="' + baseHref + '">' + text;
+      }
+      return new Response(text, { status: upstream.status, headers: outHeaders });
     }
 
     return new Response(upstream.body, { status: upstream.status, headers: outHeaders });
