@@ -2972,7 +2972,9 @@
       var html = '';
       for (var i = 0; i < COMIC_SOURCES.length; i++) {
         var src = COMIC_SOURCES[i];
-        var activeCls = (currentSource && currentSource.id === src.id) ? ' active' : '';
+        // 初始化时还没有 currentSource，默认高亮第一个源，避免所有标签都不亮
+        var isActive = currentSource ? (currentSource.id === src.id) : (i === 0);
+        var activeCls = isActive ? ' active' : '';
         html += '<div class="source-tab' + activeCls + '" data-id="' + src.id + '" onclick="switchSource(\'' + src.id + '\')">' +
                   '<span class="source-status" id="status-' + src.id + '"></span>' +
                   src.name +
@@ -4387,7 +4389,7 @@
           var chLink = chapterLinks[cl];
           var chref = fixProxyUrl(chLink.getAttribute('href'), src.domains[currentDomainIndex]);
           var chtext = chLink.textContent.trim();
-          if (chref && chtext && !seenChapterUrls[chref] && chtext.length < 80) {
+          if (chref && chtext && !seenChapterUrls[chref] && chtext.length < 130) {
             seenChapterUrls[chref] = true;
             currentChapters.push({ url: chref, title: chtext });
           }
