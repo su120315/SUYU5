@@ -2050,7 +2050,8 @@
       {
         id: 'copymanga',
         name: '拷贝漫画',
-        domains: ['https://www.copymanga.site', 'https://copymanga.site', 'https://www.copymanga.com'],
+        // mangacopy.com 为当前可直连的官方主域，copymanga.site 走 JS 挑战基本打不开，仅作兜底
+        domains: ['https://www.mangacopy.com', 'https://www.copymanga.site', 'https://www.copymanga.com'],
         searchPath: '/search?q=',
         listPaths: {
           recommend: '/',
@@ -2147,11 +2148,39 @@
         },
         watermark: '可能有水印',
         status: 'unknown'
+      },
+      {
+        id: 'mangakatana',
+        name: 'Katana小站',
+        // 小众漫画站（英文），收录了大量被国内各站下架的作品（如《有兽焉》全 1200+ 话）
+        domains: ['https://mangakatana.com'],
+        searchPath: '/?search=',
+        searchSuffix: '&search_by=book_name',
+        listPaths: {
+          recommend: '/manga',
+          hot: '/manga',
+          finish: '/manga',
+          serial: '/manga'
+        },
+        comicUrlPattern: /\/manga\/[^\/]+\.[0-9]+/,
+        chapterUrlPattern: /\/manga\/[^\/]+\.[0-9]+\/c\d+/,
+        selectors: {
+          card: ['#book_list .item', '.book_list .item'],
+          title: ['h1.heading'],
+          author: ['.authors .author'],
+          desc: ['.summary', '.description'],
+          cover: ['#single_book .media img', 'img[alt="[Cover]"]'],
+          chapters: ['.chapters .chapter a'],
+          images: []
+        },
+        watermark: '英化版',
+        status: 'unknown',
+        singleResultSearch: true   // 搜索只有一条结果时，站点会直接跳到详情页
       }
     ];
 
     // 漫画源优先级：把实测可用的源排到前面，避免首屏默认命中不可用的源
-    var SOURCE_PRIORITY = ['manwa', 'manhuagui', 'copymanga', 'kanman', 'baozimh', 'dmzj'];
+    var SOURCE_PRIORITY = ['manwa', 'manhuagui', 'mangakatana', 'copymanga', 'kanman', 'baozimh', 'dmzj'];
     COMIC_SOURCES.sort(function (a, b) {
       return SOURCE_PRIORITY.indexOf(a.id) - SOURCE_PRIORITY.indexOf(b.id);
     });
@@ -2894,6 +2923,26 @@
       }
     }
 
+    // Katana 小站：章节图片清单放在内联脚本 var thzq=[...] 里（单引号数组），普通正则抓不到
+    function decodeKatanaChapterImages(html) {
+      try {
+        var m = html.match(/var\s+thzq\s*=\s*\[([\s\S]*?)\]\s*;/);
+        if (!m) return null;
+        var urls = m[1].match(/'(https?:\/\/[^']+)'/g) || [];
+        var images = [];
+        for (var i = 0; i < urls.length; i++) {
+          var u = urls[i].replace(/^'|'$/g, '');
+          if (images.indexOf(u) === -1) images.push(u);
+        }
+        if (!images.length) return null;
+        log('Katana 解析成功: ' + images.length + ' 张图片');
+        return images;
+      } catch (e) {
+        log('Katana 解析失败: ' + (e && e.message));
+        return null;
+      }
+    }
+
     function findElements(doc, selectors, minCount) {
       for (var i = 0; i < selectors.length; i++) {
         try {
@@ -3082,6 +3131,14 @@
         var manwaImages = await decodeManwaChapterImages(html);
         if (manwaImages && manwaImages.length) {
           return { images: manwaImages, fromScript: true };
+        }
+      }
+
+      // Katana 小站：图片清单在 var thzq=[...] 内联脚本里
+      if (src.id === 'mangakatana') {
+        var katanaImages = decodeKatanaChapterImages(html);
+        if (katanaImages && katanaImages.length) {
+          return { images: katanaImages, fromScript: true };
         }
       }
 
@@ -4042,6 +4099,139 @@
     }
 
     // ==================== 搜索 ====================
+    // 把搜索结果页解析成统一的卡片数组（普通搜索 / 自动换源共用）
+    function parseSearchCards(doc, src) {
+      var items = [];
+      var cards = findElements(doc, src.selectors.card, 1);
+
+      if (cards.length === 0) {
+        var allLinks = doc.querySelectorAll('a[href*="/comic"], a[href*="/manga"]');
+        var seenUrls = {};
+        var tempCards = [];
+        for (var al = 0; al < allLinks.length; al++) {
+          var alHref = fixProxyUrl(allLinks[al].getAttribute('href'), src.domains[currentDomainIndex]);
+          if (alHref && !seenUrls[alHref] && alHref.length > 10) {
+            seenUrls[alHref] = true;
+            var parent = allLinks[al].closest('div, li, article') || allLinks[al].parentElement;
+            if (parent) tempCards.push(parent);
+          }
+        }
+        if (tempCards.length >= 1) cards = tempCards;
+      }
+
+      var seenHrefs = {};
+      for (var c = 0; c < cards.length && items.length < 40; c++) {
+        var card = cards[c];
+        var link = card.querySelector('a[href]');
+        if (!link) continue;
+        var href = fixProxyUrl(link.getAttribute('href'), src.domains[currentDomainIndex]);
+        if (!href || href === '#' || seenHrefs[href]) continue;
+        seenHrefs[href] = true;
+
+        // 优先取带 title 属性的链接文字（漫画柜等站点把书名放在 <a title="书名">，直接取文本会拿到更新状态）
+        var titleAttrEl = card.querySelector('a[title]');
+        var titleText = titleAttrEl ? (titleAttrEl.getAttribute('title') || '').trim() : '';
+        if (!titleText) {
+          var titleEls = card.querySelectorAll('[class*="title"], h3, h4, [class*="name"]');
+          for (var t = 0; t < titleEls.length; t++) {
+            // 标题元素里若还有链接，优先取链接自身的文字（避免把「更新至xx话」之类的兄弟文本一起带上）
+            var titleLink = titleEls[t].querySelector('a');
+            var txt = (titleLink ? titleLink.textContent : titleEls[t].textContent).trim();
+            if (txt && txt.length > 1 && txt.length < 60) { titleText = txt; break; }
+          }
+        }
+        if (!titleText) titleText = link.textContent.trim().substring(0, 40);
+
+        var img = card.querySelector('amp-img') || card.querySelector('img');
+        var imgSrc = getImgSrc(img);
+        // 部分站点封面是懒加载的 div/背景（data-original），没有 img 标签
+        if (!imgSrc) {
+          var lazyCover = card.querySelector('[data-original]');
+          if (lazyCover) imgSrc = lazyCover.getAttribute('data-original') || '';
+        }
+        if (imgSrc) imgSrc = fixProxyUrl(imgSrc, src.domains[currentDomainIndex]);
+
+        if (href && titleText) items.push({ href: href, title: titleText, cover: imgSrc });
+      }
+
+      // 有些站点在搜索结果唯一时直接跳到详情页（如 Katana 小站），此时从详情页兜底取一条
+      if (items.length === 0) {
+        var canonical = doc.querySelector('link[rel="canonical"]');
+        var curUrl = canonical ? (canonical.getAttribute('href') || '') : '';
+        var h1 = doc.querySelector('h1');
+        // canonical 必须是具体漫画详情页（搜索页的 canonical 是站点首页，直接排除）
+        if (curUrl && h1 && h1.textContent.trim() && /\/(manga|comic|info)\//.test(curUrl)) {
+          var coverImg = doc.querySelector('img[alt="[Cover]"]');
+          var coverUrl = coverImg ? getImgSrc(coverImg) : '';
+          if (coverUrl) coverUrl = fixProxyUrl(coverUrl, src.domains[currentDomainIndex]);
+          items.push({ href: curUrl, title: h1.textContent.trim(), cover: coverUrl });
+        }
+      }
+
+      return items;
+    }
+
+    // 标题归一化（用于判断搜索结果是否同名）
+    function normalizeComicTitle(s) {
+      return (s || '').toLowerCase()
+        .replace(/\s+/g, '')
+        .replace(/[\-_:：·，,。.!！?？\[\]【】()（）《》<>"']/g, '');
+    }
+
+    // 切换漫画源（仅更新状态和标签栏，不触发列表加载）
+    function switchSourceSilently(src) {
+      currentSource = src;
+      currentDomainIndex = 0;
+      var tabs = document.querySelectorAll('.source-tab');
+      for (var t = 0; t < tabs.length; t++) {
+        tabs[t].classList.remove('active');
+        if (tabs[t].getAttribute('data-id') === src.id) tabs[t].classList.add('active');
+      }
+    }
+
+    // 当前源没有可读章节（多半是下架）时，用标题去其他源搜索并自动跳过去
+    // triedSourceIds 记录已尝试的源，避免来回死循环
+    async function autoFindOtherSource(titleKey, triedSourceIds) {
+      var keyword = (titleKey || '').trim();
+      if (keyword.length < 2) return false;
+      var tried = triedSourceIds || [];
+
+      for (var i = 0; i < COMIC_SOURCES.length; i++) {
+        var src = COMIC_SOURCES[i];
+        if (tried.indexOf(src.id) !== -1) continue;
+        tried.push(src.id);
+        try {
+          log('自动换源搜索: ' + src.name + ' ← ' + keyword);
+          showSourceInfo('当前源没有可读章节，正在尝试 ' + src.name + '...', 'loading');
+          var searchUrl = src.domains[0] + src.searchPath + encodeURIComponent(keyword) + (src.searchSuffix || '');
+          var html = await fetchWithProxies(searchUrl, src.domains[0], 9000);
+          var doc = parseHTML(html);
+          var found = parseSearchCards(doc, src);
+          if (!found.length) continue;
+
+          // 优先同名结果；没有同名时，结果很少、或关键词是中文（英文站通过别名匹配）才敢自动跳，避免跳错漫画
+          var best = null;
+          var targetTitle = normalizeComicTitle(keyword);
+          for (var k = 0; k < found.length; k++) {
+            if (normalizeComicTitle(found[k].title) === targetTitle) { best = found[k]; break; }
+          }
+          if (!best && (found.length <= 5 || /[^\x00-\x7F]/.test(keyword))) best = found[0];
+          if (!best) { log(src.name + ' 未找到同名结果，跳过'); continue; }
+
+          hideSourceInfo();
+          switchSourceSilently(src);
+          log('已自动切换到 ' + src.name + ': ' + best.title);
+          loadComicDetail(best.href, best.title, tried);
+          return true;
+        } catch (e) {
+          log('自动换源 ' + src.name + ' 失败: ' + (e && e.message));
+        }
+      }
+
+      hideSourceInfo();
+      return false;
+    }
+
     function doSearch() {
       var keyword = document.getElementById('searchInput').value.trim();
       if (!keyword) {
@@ -4069,24 +4259,9 @@
         var html = await fetchWithProxies(searchUrl, src.domains[0]);
         var doc = parseHTML(html);
 
-        var cards = findElements(doc, src.selectors.card, 1);
+        var items = parseSearchCards(doc, src);
 
-        if (cards.length === 0) {
-          var allLinks = doc.querySelectorAll('a[href*="/comic"], a[href*="/manga"]');
-          var seenUrls = {};
-          var tempCards = [];
-          for (var al = 0; al < allLinks.length; al++) {
-            var alHref = fixProxyUrl(allLinks[al].getAttribute('href'), src.domains[currentDomainIndex]);
-            if (alHref && !seenUrls[alHref] && alHref.length > 10) {
-              seenUrls[alHref] = true;
-              var parent = allLinks[al].closest('div, li, article') || allLinks[al].parentElement;
-              if (parent) tempCards.push(parent);
-            }
-          }
-          if (tempCards.length >= 1) cards = tempCards;
-        }
-
-        if (cards.length === 0) {
+        if (items.length === 0) {
           content.innerHTML =
             '<div class="comic-error">' +
               '<i data-lucide="search-x"></i>' +
@@ -4105,55 +4280,23 @@
         }
 
         var htmlStr = '<div class="comic-grid">';
-        var count = 0;
-        var seenHrefs = {};
-        for (var c = 0; c < cards.length; c++) {
-          var card = cards[c];
-          var link = card.querySelector('a[href]');
-          if (!link) continue;
-          var href = fixProxyUrl(link.getAttribute('href'), src.domains[currentDomainIndex]);
-          if (!href || href === '#' || seenHrefs[href]) continue;
-          seenHrefs[href] = true;
-
-          // 优先取带 title 属性的链接文字（漫画柜等站点把书名放在 <a title="书名">，直接取文本会拿到更新状态）
-          var titleAttrEl = card.querySelector('a[title]');
-          var titleText = titleAttrEl ? (titleAttrEl.getAttribute('title') || '').trim() : '';
-          if (!titleText) {
-            var titleEls = card.querySelectorAll('[class*="title"], h3, h4, [class*="name"]');
-            for (var t = 0; t < titleEls.length; t++) {
-              var txt = titleEls[t].textContent.trim();
-              if (txt && txt.length > 1 && txt.length < 50) { titleText = txt; break; }
-            }
-          }
-          if (!titleText && link) titleText = link.textContent.trim().substring(0, 30);
-
-          var img = card.querySelector('amp-img') || card.querySelector('img');
-          var imgSrc = getImgSrc(img);
-          // 部分站点封面是懒加载的 div/背景（data-original），没有 img 标签
-          if (!imgSrc) {
-            var lazyCover = card.querySelector('[data-original]');
-            if (lazyCover) imgSrc = lazyCover.getAttribute('data-original') || '';
-          }
-          if (imgSrc) imgSrc = fixProxyUrl(imgSrc, src.domains[currentDomainIndex]);
-
-          if (href && titleText) {
-            var safeHref = href.replace(/'/g, "\\'").replace(/"/g, '&quot;');
-            var safeTitle = titleText.replace(/"/g, '&quot;');
-            htmlStr +=
-              '<div class="comic-card" data-action="comic-detail" data-url="' + safeHref + '" data-title="' + safeTitle + '">' +
-                (imgSrc ? '<img class="comic-card-img" src="' + imgSrc + '" alt="' + safeTitle + '" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.style.display=\'none\'">' :
-                 '<div class="comic-card-img" style="display:flex;align-items:center;justify-content:center;font-size:2rem;">📖</div>') +
+        for (var c = 0; c < items.length; c++) {
+          var it = items[c];
+          var safeHref = it.href.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+          var safeTitle = it.title.replace(/"/g, '&quot;');
+          htmlStr +=
+            '<div class="comic-card" data-action="comic-detail" data-url="' + safeHref + '" data-title="' + safeTitle + '">' +
+              (it.cover ? '<img class="comic-card-img" src="' + it.cover + '" alt="' + safeTitle + '" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.style.display=\'none\'">' :
+               '<div class="comic-card-img" style="display:flex;align-items:center;justify-content:center;font-size:2rem;">📖</div>') +
                 '<div class="comic-card-info">' +
                   '<div class="comic-card-title">' + safeTitle + '</div>' +
                 '</div>' +
               '</div>';
-            count++;
-          }
         }
         htmlStr += '</div>';
 
         content.innerHTML = htmlStr;
-        showSourceInfo('来源: ' + src.name + ' · 找到 ' + count + ' 个结果', 'ok');
+        showSourceInfo('来源: ' + src.name + ' · 找到 ' + items.length + ' 个结果', 'ok');
       } catch (e) {
         showErrorWithActions('搜索失败', e.message, true, [
           { text: '换源搜索', action: 'tryNextSource(\'search\',\'' + keyword.replace(/'/g, "\\'") + '\')' },
@@ -4163,7 +4306,7 @@
     }
 
     // ==================== 漫画详情 ====================
-    async function loadComicDetail(comicUrl, fallbackTitle) {
+    async function loadComicDetail(comicUrl, fallbackTitle, triedSources) {
       currentView = 'detail';
       currentComicUrl = comicUrl;
       currentComicTitle = fallbackTitle || '';
@@ -4184,6 +4327,17 @@
         var doc = parseHTML(html);
 
         var titleText = findFirstText(doc, src.selectors.title) || fallbackTitle || '未知漫画';
+        // Katana 小站是英文站，标题优先用别名里的中文名（如 You Shou Yan → 有兽焉）
+        if (src.id === 'mangakatana') {
+          var altEl = doc.querySelector('.alt_name');
+          if (altEl) {
+            var altParts = altEl.textContent.split(/[;；,，]/);
+            for (var ap = 0; ap < altParts.length; ap++) {
+              var altSeg = altParts[ap].trim();
+              if (altSeg && /[\u4e00-\u9fa5]/.test(altSeg)) { titleText = altSeg; break; }
+            }
+          }
+        }
         var authorText = findFirstText(doc, src.selectors.author);
         var descText = findFirstText(doc, src.selectors.desc);
 
@@ -4233,7 +4387,7 @@
           var chLink = chapterLinks[cl];
           var chref = fixProxyUrl(chLink.getAttribute('href'), src.domains[currentDomainIndex]);
           var chtext = chLink.textContent.trim();
-          if (chref && chtext && !seenChapterUrls[chref] && chtext.length < 50) {
+          if (chref && chtext && !seenChapterUrls[chref] && chtext.length < 80) {
             seenChapterUrls[chref] = true;
             currentChapters.push({ url: chref, title: chtext });
           }
@@ -4241,6 +4395,27 @@
 
         if (currentChapters.length > 1) {
           sortChapters(currentChapters);
+        }
+
+        // 章节列表为空（该站最常见的原因是「已下架」）→ 自动用标题去其他源找同名漫画
+        if (currentChapters.length === 0) {
+          var fbTitle = (titleText && titleText !== '未知漫画') ? titleText : (fallbackTitle || '');
+          var triedList = (triedSources && triedSources.length) ? triedSources.slice() : [];
+          if (src.id && triedList.indexOf(src.id) === -1) triedList.push(src.id);
+          log('当前源无章节，尝试自动换源: ' + fbTitle);
+          var switched = await autoFindOtherSource(fbTitle, triedList);
+          if (!switched) {
+            showErrorWithActions(
+              '当前源没有可读章节',
+              '"' + (fbTitle || '该漫画') + '" 在 ' + src.name + ' 可能已下架，其他源也没找到同名漫画',
+              true,
+              [
+                { text: '重试', action: 'loadComicDetail("' + comicUrl.replace(/'/g, "\\'") + '", "' + (fallbackTitle || '').replace(/'/g, "\\'") + '")' },
+                { text: '返回列表', action: 'loadComicList(\'recommend\')' }
+              ]
+            );
+          }
+          return;
         }
 
         var chapterHtml = '';

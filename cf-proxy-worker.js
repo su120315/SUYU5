@@ -40,6 +40,8 @@ const ALLOWED_HOSTS = [
   'manwamh5.com',
   'manwamh.com',
   'manwa2.com',
+  // 小众漫画站（收录了不少国内已下架的作品）
+  'mangakatana.com',
   // 小说源（备用）
   'zongheng.com',
 ];
@@ -71,6 +73,8 @@ const REFERER_MAP = [
   ['gufengmh.com', 'https://www.gufengmh.com/'],
   ['manhuaren.com', 'https://www.manhuaren.com/'],
   ['colamanga.com', 'https://www.colamanga.com/'],
+  // Katana 小站：图片走 i1.mangakatana.com，带上本站 Referer 更稳
+  ['mangakatana.com', 'https://mangakatana.com/'],
 ];
 
 // 给目标地址挑一个能过防盗链的 Referer
