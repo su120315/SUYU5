@@ -1997,6 +1997,32 @@
     // ==================== 多漫画源架构 ====================
     var COMIC_SOURCES = [
       {
+        id: 'manwa',
+        name: '漫蛙',
+        // manwamh5 / manwamh 为同一套后端的镜像域名，页面结构一致
+        domains: ['https://www.manwamh5.com', 'https://www.manwamh.com', 'https://manwamh5.com'],
+        searchPath: '/search?q=',
+        listPaths: {
+          recommend: '/',
+          hot: '/category',
+          finish: '/category',
+          serial: '/update'
+        },
+        comicUrlPattern: /\/comic\//,
+        chapterUrlPattern: /\/[A-Za-z0-9]{4,}\/\d+/,
+        selectors: {
+          card: ['.comics-card', '.classify-items > div', '.recommend--item', '.swiper-slide'],
+          title: ['.comics-detail__title', '.comics-card__title', 'h3', 'h1'],
+          author: ['.comics-detail__author', '.author'],
+          desc: ['.comics-detail__desc', '.description'],
+          cover: ['.de-info__box img', '.comics-detail__cover img', '.cover img'],
+          chapters: ['.comics-chapters a', '.comics-chapters__item'],
+          images: ['#chapter-images img', '.comic-chapter img', '.chapter-images img']
+        },
+        watermark: '可能有水印',
+        status: 'unknown'
+      },
+      {
         id: 'baozimh',
         name: '包子漫画',
         domains: ['https://cn.bzmgcn.com', 'https://www.baozimh.com', 'https://cn.baozimh.com'],
@@ -2125,7 +2151,7 @@
     ];
 
     // 漫画源优先级：把实测可用的源排到前面，避免首屏默认命中不可用的源
-    var SOURCE_PRIORITY = ['manhuagui', 'copymanga', 'kanman', 'baozimh', 'dmzj'];
+    var SOURCE_PRIORITY = ['manwa', 'manhuagui', 'copymanga', 'kanman', 'baozimh', 'dmzj'];
     COMIC_SOURCES.sort(function (a, b) {
       return SOURCE_PRIORITY.indexOf(a.id) - SOURCE_PRIORITY.indexOf(b.id);
     });
@@ -2787,6 +2813,87 @@
       }
     }
 
+    // ==================== 漫蛙（manwa）章节解密 ====================
+    // 漫蛙把章节图片清单用 AES-128-CBC 加密后放进内联脚本的 params 变量：
+    //   base64 解码后前 16 字节是 IV，其余为密文；解密结果里的 chapter_images（或 images）
+    //   配合 images_hosts 拼出 https://<CDN>/<路径> 的真实图片地址。
+    // 漫蛙系各镜像密钥不同，逐个尝试（manwamh5 / manwa2）。
+    var MANWA_KEYS = ['5V&RoR%Jf@pJPydF', '9S8$vJnU2ANeSRoF'];
+
+    function base64ToBytes(b64) {
+      var bin = atob(b64.replace(/[\s\r\n]+/g, ''));
+      var bytes = new Uint8Array(bin.length);
+      for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      return bytes;
+    }
+
+    function utf8ToBase64(str) {
+      var bytes = new TextEncoder().encode(str);
+      var bin = '';
+      for (var i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+      return btoa(bin);
+    }
+
+    async function decryptManwaParams(b64) {
+      if (!window.crypto || !window.crypto.subtle) return null;
+      var raw;
+      try { raw = base64ToBytes(b64); } catch (e) { return null; }
+      if (raw.length < 32) return null;
+      var iv = raw.slice(0, 16);
+      var cipher = raw.slice(16);
+      for (var ki = 0; ki < MANWA_KEYS.length; ki++) {
+        try {
+          var keyBytes = new TextEncoder().encode(MANWA_KEYS[ki]);
+          var key = await crypto.subtle.importKey('raw', keyBytes, { name: 'AES-CBC' }, false, ['decrypt']);
+          var plainBuf = await crypto.subtle.decrypt({ name: 'AES-CBC', iv: iv }, key, cipher);
+          var text = new TextDecoder('utf-8').decode(plainBuf);
+          var data = JSON.parse(text);
+          if (data) return data;
+        } catch (e) { /* 密钥不对，试下一个 */ }
+      }
+      return null;
+    }
+
+    // 按漫蛙的拼接规则（cms.js 的 getImageUrl）生成真实图片地址
+    function manwaBuildImageUrls(data) {
+      var images = [];
+      var hosts = (data.images_hosts && data.images_hosts.length) ? data.images_hosts : [''];
+      var host = hosts[0] || '';
+      var list = data.chapter_images || data.images || [];
+      for (var i = 0; i < list.length; i++) {
+        var v = list[i];
+        if (!v) continue;
+        var full;
+        if (/^https?:\/\//i.test(v)) {
+          full = v;
+        } else if (v.indexOf('//') === 0) {
+          full = 'https:' + v;
+        } else if (data.images_base64) {
+          full = host + '/' + utf8ToBase64(v);
+        } else {
+          full = host + (v.charAt(0) === '/' ? v : '/' + v);
+        }
+        images.push(proxifyImageUrl(full));
+      }
+      return images;
+    }
+
+    async function decodeManwaChapterImages(html) {
+      try {
+        var m = html.match(/var\s+params\s*=\s*'([^']+)'/);
+        if (!m) return null;
+        var data = await decryptManwaParams(m[1]);
+        if (!data) return null;
+        var imgs = manwaBuildImageUrls(data);
+        if (!imgs.length) return null;
+        log('漫蛙解密成功: ' + imgs.length + ' 张图片');
+        return imgs;
+      } catch (e) {
+        log('漫蛙解密失败: ' + (e && e.message));
+        return null;
+      }
+    }
+
     function findElements(doc, selectors, minCount) {
       for (var i = 0; i < selectors.length; i++) {
         try {
@@ -2967,6 +3074,14 @@
         var mhgImages = decodeManhuaguiChapterImages(html);
         if (mhgImages && mhgImages.length) {
           return { images: mhgImages, fromScript: true };
+        }
+      }
+
+      // 漫蛙：章节图片清单经 AES 加密在内联脚本里，用专属解码器还原
+      if (src.id === 'manwa') {
+        var manwaImages = await decodeManwaChapterImages(html);
+        if (manwaImages && manwaImages.length) {
+          return { images: manwaImages, fromScript: true };
         }
       }
 
@@ -3819,6 +3934,11 @@
 
           var img = card.querySelector('amp-img') || card.querySelector('img');
           var imgSrc = getImgSrc(img);
+          // 部分站点封面是懒加载的 div/背景（data-original），没有 img 标签
+          if (!imgSrc) {
+            var lazyCover = card.querySelector('[data-original]');
+            if (lazyCover) imgSrc = lazyCover.getAttribute('data-original') || '';
+          }
           if (imgSrc) imgSrc = fixProxyUrl(imgSrc, src.domains[currentDomainIndex]);
 
           var chapterEls = card.querySelectorAll('[class*="chapter"], em, [class*="subtitle"], [class*="info"]');
@@ -4009,6 +4129,11 @@
 
           var img = card.querySelector('amp-img') || card.querySelector('img');
           var imgSrc = getImgSrc(img);
+          // 部分站点封面是懒加载的 div/背景（data-original），没有 img 标签
+          if (!imgSrc) {
+            var lazyCover = card.querySelector('[data-original]');
+            if (lazyCover) imgSrc = lazyCover.getAttribute('data-original') || '';
+          }
           if (imgSrc) imgSrc = fixProxyUrl(imgSrc, src.domains[currentDomainIndex]);
 
           if (href && titleText) {

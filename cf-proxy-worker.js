@@ -36,6 +36,10 @@ const ALLOWED_HOSTS = [
   'colamanga.com',
   'manga2020.com',
   'manhuaren.com',
+  // 漫蛙系（manwamh5 镜像 + manwa2 备用）
+  'manwamh5.com',
+  'manwamh.com',
+  'manwa2.com',
   // 小说源（备用）
   'zongheng.com',
 ];
@@ -47,6 +51,12 @@ const REFERER_MAP = [
   ['hamreus.com', 'https://www.manhuagui.com/'],
   ['mhgui.com', 'https://www.manhuagui.com/'],
   ['manhuagui.com', 'https://www.manhuagui.com/'],
+  // 漫蛙系：图片 CDN 只认漫蛙 Referer
+  ['mhpic.net', 'https://www.manwamh5.com/'],
+  ['baipiaoguai.org', 'https://manwa2.com/'],
+  ['manwamh5.com', 'https://www.manwamh5.com/'],
+  ['manwamh.com', 'https://www.manwamh5.com/'],
+  ['manwa2.com', 'https://manwa2.com/'],
   ['kanmanimg.com', 'https://www.kanman.com/'],
   ['kanman.com', 'https://www.kanman.com/'],
   ['bzmgcn.com', 'https://cn.bzmgcn.com/'],
