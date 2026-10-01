@@ -2050,28 +2050,33 @@
       {
         id: 'copymanga',
         name: '拷贝漫画',
-        // mangacopy.com 为当前可直连的官方主域，copymanga.site 走 JS 挑战基本打不开，仅作兜底
-        domains: ['https://www.mangacopy.com', 'https://www.copymanga.site', 'https://www.copymanga.com'],
+        // 华人最大的漫画站之一（台/港/陆用户都在用），目录非常全、更新快、图片高清无水印
+        // 注意：它的页面大多由 JS 动态渲染，普通 HTML 解析拿不到内容，
+        // 所以搜索、章节目录、章节图片都改走它的官方 JSON 接口（见 copymanga* 系列函数）
+        domains: ['https://www.mangacopy.com'],
         searchPath: '/search?q=',
         listPaths: {
-          recommend: '/',
-          hot: '/classify/0-0-0-0-0-0-0-1?ordering=-popular',
-          finish: '/classify/0-0-0-0-0-0-1-1',
-          serial: '/classify/0-0-0-0-0-0-0-1'
+          recommend: '/comics?ordering=-datetime_updated&limit=50',
+          hot: '/comics?ordering=-popular&limit=50',
+          finish: '/comics?status=1&ordering=-datetime_updated&limit=50',
+          serial: '/comics?status=0&ordering=-datetime_updated&limit=50'
         },
         comicUrlPattern: /\/comic\//,
         chapterUrlPattern: /\/comic\/.*\/chapter\//,
         selectors: {
-          card: ['.comicCard', '.comic-card', '.comic_card', '[class*="comic"][class*="card"]', '.pure-u-1-2', 'li.pure-u'],
-          title: ['.comicInfo .title', '.comic-title', 'h1', '.comicInfo h1', '.card-title'],
-          author: ['.comicInfo .author', '.comic-author', '.author', '.tag-author'],
-          desc: ['.comicInfo .intro', '.comic-desc', '.description', '.comic-desc'],
-          cover: ['.comicInfo img', '.comicCover img', '.cover img', '.card-cover img'],
-          chapters: ['.chapter-list a', '.chapterItem a', '[class*="chapter"] a', '#chapter-list a'],
-          images: ['.comicContent', '.comic-images', '.imageList', '[class*="image"]', '.reader-content']
+          card: ['.exemptComic_Item', '.exemptComic-box', '.comicRank-all'],
+          title: ['.comicParticulars-title h6', 'h6[title]', 'h6'],
+          author: ['.comicParticulars-title-right a[href*="/author/"]'],
+          desc: ['p.intro'],
+          cover: ['.comicParticulars-left-img img'],
+          chapters: [],
+          images: []
         },
         watermark: '可能有水印',
-        status: 'unknown'
+        status: 'unknown',
+        customSearch: 'copymanga',    // 搜索走 JSON 接口
+        customChapters: 'copymanga',  // 章节目录走加密接口
+        customList: 'copymanga'       // 列表数据藏在页面属性里
       },
       {
         id: 'manhuagui',
@@ -2180,7 +2185,8 @@
     ];
 
     // 漫画源优先级：把实测可用的源排到前面，避免首屏默认命中不可用的源
-    var SOURCE_PRIORITY = ['manwa', 'manhuagui', 'mangakatana', 'copymanga', 'kanman', 'baozimh', 'dmzj'];
+    // 拷贝漫画为国内/华人站，目录最全且已打通全链路（搜索/目录/图片），放在首位
+    var SOURCE_PRIORITY = ['copymanga', 'manwa', 'manhuagui', 'mangakatana', 'kanman', 'baozimh', 'dmzj'];
     COMIC_SOURCES.sort(function (a, b) {
       return SOURCE_PRIORITY.indexOf(a.id) - SOURCE_PRIORITY.indexOf(b.id);
     });
@@ -2943,6 +2949,342 @@
       }
     }
 
+    // ==================== 拷贝漫画（copymanga / mangacopy）专属接口 ====================
+    // 站点是 JS 渲染的，普通 HTML 解析拿不到内容；且章节/图片数据用 AES-128-CBC 加密：
+    //   加密串 = 前 16 位明文当 IV + 余下部分为 hex 密文；密钥固定为 '0p0zzpvv.nmn.oop'
+    var COPYMANGA_KEY = '0p0zzpvv.nmn.oop';
+    var COPYMANGA_BASE = 'https://www.mangacopy.com';
+
+    function hexToBytes(hex) {
+      var len = Math.floor(hex.length / 2);
+      var bytes = new Uint8Array(len);
+      for (var i = 0; i < len; i++) bytes[i] = parseInt(hex.substr(i * 2, 2), 16);
+      return bytes;
+    }
+
+    // 纯 JS 的 AES-128-CBC 解密（当浏览器没有 WebCrypto 时兜底：
+// 例如用 http 打开本地文件、或部分内置浏览器里 crypto.subtle 不可用）
+    var AesCbcJs = (function () {
+      var sbox = new Array(256), rsbox = new Array(256);
+      var Rcon = [0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x1b, 0x36];
+      (function () {
+        var p = 1, q = 1;
+        do {
+          p = (p ^ (p << 1) ^ ((p & 0x80) ? 0x1b : 0)) & 0xff;
+          q = (q ^ (q << 1)) & 0xff;
+          q = (q ^ (q << 2)) & 0xff;
+          q = (q ^ (q << 4)) & 0xff;
+          if (q & 0x80) q ^= 0x09;
+          var x = (q ^ ((q << 1) | (q >> 7)) ^ ((q << 2) | (q >> 6)) ^ ((q << 3) | (q >> 5)) ^ ((q << 4) | (q >> 4))) & 0xff;
+          sbox[p] = (x ^ 0x63) & 0xff;
+        } while (p !== 1);
+        sbox[0] = 0x63;
+        for (var i = 0; i < 256; i++) rsbox[sbox[i]] = i;
+      })();
+      function xtime(a) { return ((a << 1) ^ ((a & 0x80) ? 0x1b : 0)) & 0xff; }
+      function mul(a, b) {
+        var r = 0;
+        while (b) {
+          if (b & 1) r ^= a;
+          a = xtime(a);
+          b >>= 1;
+        }
+        return r & 0xff;
+      }
+      function expandKey(key) {
+        var Nk = key.length / 4, Nr = Nk + 6;
+        var w = [];
+        for (var i = 0; i < Nk; i++) w[i] = [key[4 * i], key[4 * i + 1], key[4 * i + 2], key[4 * i + 3]];
+        for (i = Nk; i < 4 * (Nr + 1); i++) {
+          var t = w[i - 1].slice();
+          if (i % Nk === 0) {
+            t.push(t.shift());
+            for (var s = 0; s < 4; s++) t[s] = sbox[t[s]];
+            t[0] ^= Rcon[i / Nk - 1];
+          } else if (Nk > 6 && i % Nk === 4) {
+            for (var s2 = 0; s2 < 4; s2++) t[s2] = sbox[t[s2]];
+          }
+          w[i] = [w[i - Nk][0] ^ t[0], w[i - Nk][1] ^ t[1], w[i - Nk][2] ^ t[2], w[i - Nk][3] ^ t[3]];
+        }
+        return { w: w, Nr: Nr };
+      }
+      function addRoundKey(st, w, round) {
+        for (var c = 0; c < 4; c++) {
+          var word = w[round * 4 + c];
+          for (var r = 0; r < 4; r++) st[r + 4 * c] ^= word[r];
+        }
+      }
+      function invShiftRows(st) {
+        for (var r = 1; r < 4; r++) {
+          var row = [st[r], st[r + 4], st[r + 8], st[r + 12]];
+          for (var c = 0; c < 4; c++) st[r + 4 * c] = row[(c - r + 4) % 4];
+        }
+      }
+      function invSubBytes(st) {
+        for (var i = 0; i < 16; i++) st[i] = rsbox[st[i]];
+      }
+      function invMixColumns(st) {
+        for (var c = 0; c < 4; c++) {
+          var a0 = st[4 * c], a1 = st[4 * c + 1], a2 = st[4 * c + 2], a3 = st[4 * c + 3];
+          st[4 * c]     = mul(a0, 14) ^ mul(a1, 11) ^ mul(a2, 13) ^ mul(a3, 9);
+          st[4 * c + 1] = mul(a0, 9)  ^ mul(a1, 14) ^ mul(a2, 11) ^ mul(a3, 13);
+          st[4 * c + 2] = mul(a0, 13) ^ mul(a1, 9)  ^ mul(a2, 14) ^ mul(a3, 11);
+          st[4 * c + 3] = mul(a0, 11) ^ mul(a1, 13) ^ mul(a2, 9)  ^ mul(a3, 14);
+        }
+      }
+      function decryptBlock(block, ks) {
+        var st = block.slice();
+        addRoundKey(st, ks.w, ks.Nr);
+        for (var round = ks.Nr - 1; round >= 1; round--) {
+          invShiftRows(st);
+          invSubBytes(st);
+          addRoundKey(st, ks.w, round);
+          invMixColumns(st);
+        }
+        invShiftRows(st);
+        invSubBytes(st);
+        addRoundKey(st, ks.w, 0);
+        return st;
+      }
+      return {
+        decryptUtf8: function (keyBytes, ivBytes, cipherBytes) {
+          var ks = expandKey(keyBytes);
+          if (cipherBytes.length % 16 !== 0 || cipherBytes.length === 0) throw new Error('密文长度不合法');
+          var prev = ivBytes;
+          var out = [];
+          for (var off = 0; off < cipherBytes.length; off += 16) {
+            var block = [];
+            for (var i = 0; i < 16; i++) block.push(cipherBytes[off + i]);
+            var dec = decryptBlock(block, ks);
+            for (var j = 0; j < 16; j++) out.push(dec[j] ^ prev[j]);
+            prev = block;
+          }
+          // 去掉 PKCS#7 填充
+          var pad = out[out.length - 1];
+          if (pad < 1 || pad > 16 || pad > out.length) throw new Error('填充不合法');
+          for (var k = out.length - pad; k < out.length; k++) {
+            if (out[k] !== pad) throw new Error('填充不合法');
+          }
+          out = out.slice(0, out.length - pad);
+          if (typeof TextDecoder !== 'undefined') {
+            return new TextDecoder('utf-8').decode(new Uint8Array(out));
+          }
+          var str = '';
+          for (var m = 0; m < out.length; m++) str += String.fromCharCode(out[m]);
+          try { return decodeURIComponent(escape(str)); } catch (e) { return str; }
+        }
+      };
+    })();
+
+    async function decryptCopymangaPayload(payload) {
+      if (!payload || typeof payload !== 'string' || payload.length < 32) {
+        log('拷贝漫画解密失败: 加密数据无效');
+        return null;
+      }
+      var iv = new TextEncoder().encode(payload.substring(0, 16));
+      var cipher = hexToBytes(payload.substring(16));
+      var keyBytes = new TextEncoder().encode(COPYMANGA_KEY);
+      var key = null;
+      if (window.crypto && window.crypto.subtle) {
+        try {
+          key = await crypto.subtle.importKey('raw', keyBytes, { name: 'AES-CBC' }, false, ['decrypt']);
+          var plainBuf = await crypto.subtle.decrypt({ name: 'AES-CBC', iv: iv }, key, cipher);
+          return new TextDecoder('utf-8').decode(plainBuf);
+        } catch (e) {
+          log('拷贝漫画 WebCrypto 解密失败，改用 JS 兜底: ' + (e && e.message));
+        }
+      }
+      try {
+        return AesCbcJs.decryptUtf8(keyBytes, iv, cipher);
+      } catch (e2) {
+        log('拷贝漫画解密失败: ' + (e2 && e2.message));
+        return null;
+      }
+    }
+
+    // 加密接口返回的 JSON 里没有 '<' 也没有 'http'，通不过通用代理的校验，这里单独做「优先自建代理」的取数
+    async function fetchComicJson(targetUrl, timeoutMs) {
+      timeoutMs = timeoutMs || 12000;
+      var attempts = [];
+      if (OWN_PROXY_BASE) attempts.push(OWN_PROXY_BASE + '/?url=' + encodeURIComponent(targetUrl));
+      attempts.push('https://api.codetabs.com/v1/proxy/?quest=' + encodeURIComponent(targetUrl));
+      attempts.push('https://api.allorigins.win/raw?url=' + encodeURIComponent(targetUrl));
+      var lastErr = null;
+      for (var i = 0; i < attempts.length; i++) {
+        try {
+          var ctrl = createTimeoutController(timeoutMs);
+          var resp = await fetch(attempts[i], { signal: ctrl.signal });
+          if (!resp.ok) throw new Error('HTTP ' + resp.status);
+          var text = await resp.text();
+          JSON.parse(text);
+          return text;
+        } catch (e) { lastErr = e; }
+      }
+      throw new Error('接口请求失败' + (lastErr && lastErr.message ? ': ' + lastErr.message : ''));
+    }
+
+    // 搜索：官方 Web 接口（必须带 platform=2，否则返回空列表）
+    async function copymangaSearch(keyword) {
+      var api = 'https://api.mangacopy.com/api/kb/web/searchcl/comics?offset=0&platform=2&limit=24&q=' + encodeURIComponent(keyword) + '&q_type=';
+      var data = null;
+      // 站点偶发返回风控提示（code 210），重试一两次通常就正常了
+      for (var attempt = 0; attempt < 3; attempt++) {
+        try {
+          var text = await fetchComicJson(api);
+          data = JSON.parse(text);
+          if (data && data.results && data.results.list) break;
+          log('拷贝漫画搜索异常(尝试' + (attempt + 1) + '): code=' + (data && data.code));
+        } catch (e) {
+          log('拷贝漫画搜索失败(尝试' + (attempt + 1) + '): ' + (e && e.message));
+        }
+        data = null;
+      }
+      if (!data) return [];
+      var list = (data.results && data.results.list) || [];
+      var items = [];
+      for (var i = 0; i < list.length; i++) {
+        var it = list[i];
+        if (!it || !it.path_word) continue;
+        items.push({
+          href: COPYMANGA_BASE + '/comic/' + it.path_word,
+          title: it.name || '',
+          cover: it.cover ? proxifyImageUrl(it.cover) : ''
+        });
+      }
+      return items;
+    }
+
+    // 章节目录：/comicdetail/{path_word}/chapters 返回加密数据
+    async function copymangaFetchChapters(pathWord) {
+      var api = COPYMANGA_BASE + '/comicdetail/' + pathWord + '/chapters';
+      // 接口偶发返回风控提示（code 210，results 变成对象）或代理异常，重试后再放弃
+      for (var attempt = 0; attempt < 3; attempt++) {
+        try {
+          var text = await fetchComicJson(api);
+          var data = JSON.parse(text);
+          if (!data || typeof data.results !== 'string' || data.results.length < 32) {
+            log('拷贝漫画章节接口异常(尝试' + (attempt + 1) + '): code=' + (data && data.code) + (data && data.message ? ' ' + String(data.message).substring(0, 40) : ''));
+            continue;
+          }
+          var jsonStr = await decryptCopymangaPayload(data.results);
+          if (!jsonStr) {
+            log('拷贝漫画章节解密失败(尝试' + (attempt + 1) + ')');
+            continue;
+          }
+          var info = JSON.parse(jsonStr);
+          var groups = (info && info.groups) ? info.groups : {};
+          var keys = Object.keys(groups);
+          var multiGroup = keys.length > 1;
+          var chapters = [];
+          for (var gi = 0; gi < keys.length; gi++) {
+            var grp = groups[keys[gi]] || {};
+            var list = grp.chapters || [];
+            for (var ci = 0; ci < list.length; ci++) {
+              var c = list[ci];
+              if (!c || !c.id) continue;
+              var title = c.name || ('第' + (ci + 1) + '话');
+              if (multiGroup && grp.name) title = '[' + grp.name + '] ' + title;
+              chapters.push({ url: COPYMANGA_BASE + '/comic/' + pathWord + '/chapter/' + c.id, title: title });
+            }
+          }
+          return chapters;
+        } catch (e) {
+          log('拷贝漫画章节请求失败(尝试' + (attempt + 1) + '): ' + (e && e.message));
+        }
+      }
+      return [];
+    }
+
+    // 拷贝漫画阅读页偶发返回「空壳页」（contentKey 为空、正文被清空，约 7KB），
+// 多是短时限流导致；重试时轮换不同代理（出口 IP 不同），通常一两次就能拿到完整页
+    async function fetchCopymangaReaderPage(url, timeoutMs) {
+      var attempts = [];
+      if (OWN_PROXY_BASE) attempts.push(function(u) { return OWN_PROXY_BASE + '/?url=' + encodeURIComponent(u); });
+      attempts.push(function(u) { return 'https://api.codetabs.com/v1/proxy/?quest=' + encodeURIComponent(u); });
+      attempts.push(function(u) { return 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u); });
+      var lastHtml = '';
+      for (var attempt = 0; attempt < 3; attempt++) {
+        try {
+          if (attempt > 0) {
+            await new Promise(function (r) { setTimeout(r, 400 * attempt); });
+          }
+          var ctrl = createTimeoutController(timeoutMs || 12000);
+          var resp = await fetch(attempts[attempt % attempts.length](url), { signal: ctrl.signal });
+          if (!resp.ok) throw new Error('HTTP ' + resp.status);
+          var html = await resp.text();
+          // 必须拿到非空的 contentKey 才算成功
+          if (/contentKey\s*=\s*'[^']+'/.test(html)) return html;
+          lastHtml = html;
+          log('拷贝漫画阅读页为空壳(' + html.length + ' 字节)，第 ' + (attempt + 1) + ' 次重试');
+        } catch (e) {
+          log('拷贝漫画阅读页请求失败(第 ' + (attempt + 1) + ' 次): ' + (e && e.message));
+        }
+      }
+      return lastHtml || '';
+    }
+
+    // 章节图片：阅读页内联的 contentKey 加密串，解密后是 [{url}] 图片清单
+    async function decodeCopymangaChapterImages(html) {
+      try {
+        var m = html.match(/contentKey\s*=\s*'([^']+)'/);
+        if (!m) {
+          log('拷贝漫画阅读页未找到 contentKey（页面 ' + html.length + ' 字节）');
+          return null;
+        }
+        var jsonStr = await decryptCopymangaPayload(m[1]);
+        if (!jsonStr) return null;
+        var list = JSON.parse(jsonStr);
+        var images = [];
+        for (var i = 0; i < list.length; i++) {
+          var u = list[i] && list[i].url;
+          if (u) images.push(proxifyImageUrl(u));
+        }
+        if (!images.length) return null;
+        log('拷贝漫画解析成功: ' + images.length + ' 张图片');
+        return images;
+      } catch (e) {
+        log('拷贝漫画解析失败: ' + (e && e.message));
+        return null;
+      }
+    }
+
+    // 列表页：数据内嵌在 .exemptComic-box 的 list 属性里（HTML 实体包裹的单引号 JS 数组）
+    function parseCopymangaListCards(html) {
+      var items = [];
+      var boxMatch = html.match(/<div[^>]*exemptComic-box[^>]*list="([^"]+)"/);
+      var raw = boxMatch ? boxMatch[1] : '';
+      if (raw) {
+        raw = raw.replace(/&#x27;/g, "'").replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>');
+        var re = /'path_word':\s*'([^']+)',\s*'name':\s*'([^']*)',\s*'cover':\s*'([^']*)'/g;
+        var m;
+        var seen = {};
+        while ((m = re.exec(raw)) !== null) {
+          var pw = m[1];
+          if (!pw || seen[pw]) continue;
+          seen[pw] = true;
+          items.push({
+            href: COPYMANGA_BASE + '/comic/' + pw,
+            title: m[2],
+            cover: m[3] ? proxifyImageUrl(m[3]) : ''
+          });
+        }
+      }
+      if (!items.length) {
+        var doc = parseHTML(html);
+        var links = doc.querySelectorAll('a[href^="/comic/"]');
+        var seen2 = {};
+        for (var i = 0; i < links.length; i++) {
+          var href = fixProxyUrl(links[i].getAttribute('href'), COPYMANGA_BASE);
+          var txt = links[i].textContent.trim();
+          if (!href || !txt || txt.length < 2 || seen2[href]) continue;
+          seen2[href] = true;
+          var img = links[i].querySelector('img');
+          items.push({ href: href, title: txt.substring(0, 40), cover: img ? proxifyImageUrl(getImgSrc(img)) : '' });
+        }
+      }
+      return items;
+    }
+
     function findElements(doc, selectors, minCount) {
       for (var i = 0; i < selectors.length; i++) {
         try {
@@ -3110,10 +3452,19 @@
 
       // 优先使用缓存的HTML
       var html = chapterHtmlCache[chapter.url];
+      // 拷贝漫画的空壳页不能进缓存，命中缓存但没 contentKey 时也要重新抓
+      if (html && src.id === 'copymanga' && !/contentKey\s*=\s*'/.test(html)) {
+        html = null;
+      }
       if (!html) {
         // 下载模式下用更短超时(6s) + 支持取消
         var timeout = downloadCancelled ? 6000 : 10000;
-        html = await fetchWithProxies(chapter.url, src.domains[0], timeout, downloadAbortController ? downloadAbortController.signal : null);
+        if (src.id === 'copymanga') {
+          // 拷贝漫画阅读页偶发返回空壳页，需要带重试的专用抓取
+          html = await fetchCopymangaReaderPage(chapter.url, timeout);
+        } else {
+          html = await fetchWithProxies(chapter.url, src.domains[0], timeout, downloadAbortController ? downloadAbortController.signal : null);
+        }
         chapterHtmlCache[chapter.url] = html;
       }
       var doc = parseHTML(html);
@@ -3142,6 +3493,14 @@
         if (katanaImages && katanaImages.length) {
           return { images: katanaImages, fromScript: true };
         }
+      }
+
+      // 拷贝漫画：图片清单是内联 contentKey 加密串（AES-128-CBC），解密还原
+      // 解析不到就返回空（页面其余图片都是广告/图标，走通用解析会抓到无关图片）
+      // 注意：拷贝漫画的图上有站点水印，fromScript 传 false 让阅读器如实标注「可能有水印」
+      if (src.id === 'copymanga') {
+        var cmImages = await decodeCopymangaChapterImages(html);
+        return { images: (cmImages && cmImages.length) ? cmImages : [], fromScript: false };
       }
 
       var scriptImages = extractImagesFromScript(html);
@@ -3276,11 +3635,11 @@
     // 严格校验图片 Blob
     function isValidImageBlob(blob) {
       if (!blob || blob.size < 1000) return false;
-      // 有明确 MIME 类型的，必须是图片
-      if (blob.type && blob.type.indexOf('image') === -1) return false;
+      // 有明确 MIME 类型且不是图片/流类型的，一定不是图片
+      // （部分图床用 octet-stream 返回图片，需要放行）
+      if (blob.type && blob.type.indexOf('image') === -1 && blob.type.indexOf('octet-stream') === -1) return false;
       if (blob.type && blob.type.indexOf('image') !== -1) return true;
-      // 没有 MIME 类型但体积够大，大概率是图片（代理服务器可能返回空类型）
-      // 部分代理返回的图片 MIME 为空但体积较小，放宽到 2KB
+      // 没有明确图片 MIME（空类型或 octet-stream）但体积够大，大概率是图片
       return blob.size > 2000;
     }
 
@@ -3939,6 +4298,17 @@
         var html = await fetchWithProxies(targetUrl, src.domains[0]);
         var doc = parseHTML(html);
 
+        // 拷贝漫画：卡片是 JS 渲染的，静态 HTML 里没有，列表数据内嵌在页面属性里
+        if (src.customList === 'copymanga') {
+          var cmItems = parseCopymangaListCards(html);
+          if (cmItems.length) {
+            content.innerHTML = buildComicCardHtml(cmItems);
+            showSourceInfo('来源: ' + src.name + ' · 共 ' + cmItems.length + ' 部', 'ok');
+            log('加载 ' + cmItems.length + ' 部漫画 (' + src.name + ')');
+            return;
+          }
+        }
+
         var cards = findElements(doc, src.selectors.card, 3);
 
         if (cards.length === 0) {
@@ -4173,6 +4543,27 @@
       return items;
     }
 
+    // 把 [{href,title,cover}] 渲染成卡片网格（搜索 / 自定义列表共用）
+    function buildComicCardHtml(items) {
+      var htmlStr = '<div class="comic-grid">';
+      for (var c = 0; c < items.length; c++) {
+        var it = items[c];
+        var safeHref = (it.href || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+        var safeTitle = (it.title || '').replace(/"/g, '&quot;');
+        htmlStr +=
+          '<div class="comic-card" data-action="comic-detail" data-url="' + safeHref + '" data-title="' + safeTitle + '">' +
+            (it.cover ? '<img class="comic-card-img" src="' + it.cover + '" alt="' + safeTitle + '" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.style.display=\'none\'">' :
+             '<div class="comic-card-img" style="display:flex;align-items:center;justify-content:center;font-size:2rem;">📖</div>') +
+            '<div class="comic-card-info">' +
+              '<div class="comic-card-title">' + safeTitle + '</div>' +
+              (it.chapter ? '<div class="comic-card-chapter">' + it.chapter + '</div>' : '') +
+            '</div>' +
+          '</div>';
+      }
+      htmlStr += '</div>';
+      return htmlStr;
+    }
+
     // 标题归一化（用于判断搜索结果是否同名）
     function normalizeComicTitle(s) {
       return (s || '').toLowerCase()
@@ -4205,10 +4596,15 @@
         try {
           log('自动换源搜索: ' + src.name + ' ← ' + keyword);
           showSourceInfo('当前源没有可读章节，正在尝试 ' + src.name + '...', 'loading');
-          var searchUrl = src.domains[0] + src.searchPath + encodeURIComponent(keyword) + (src.searchSuffix || '');
-          var html = await fetchWithProxies(searchUrl, src.domains[0], 9000);
-          var doc = parseHTML(html);
-          var found = parseSearchCards(doc, src);
+          var found;
+          if (src.customSearch === 'copymanga') {
+            found = await copymangaSearch(keyword);
+          } else {
+            var searchUrl = src.domains[0] + src.searchPath + encodeURIComponent(keyword) + (src.searchSuffix || '');
+            var html = await fetchWithProxies(searchUrl, src.domains[0]);
+            var doc = parseHTML(html);
+            found = parseSearchCards(doc, src);
+          }
           if (!found.length) continue;
 
           // 优先同名结果；没有同名时，结果很少、或关键词是中文（英文站通过别名匹配）才敢自动跳，避免跳错漫画
@@ -4257,11 +4653,16 @@
         '</div>';
 
       try {
-        var searchUrl = src.domains[currentDomainIndex] + src.searchPath + encodeURIComponent(keyword) + (src.searchSuffix || '');
-        var html = await fetchWithProxies(searchUrl, src.domains[0]);
-        var doc = parseHTML(html);
-
-        var items = parseSearchCards(doc, src);
+        var items;
+        if (src.customSearch === 'copymanga') {
+          // 拷贝漫画：走官方搜索接口（页面搜索结果是 JS 渲染的，HTML 解析不到）
+          items = await copymangaSearch(keyword);
+        } else {
+          var searchUrl = src.domains[currentDomainIndex] + src.searchPath + encodeURIComponent(keyword) + (src.searchSuffix || '');
+          var html = await fetchWithProxies(searchUrl, src.domains[0]);
+          var doc = parseHTML(html);
+          items = parseSearchCards(doc, src);
+        }
 
         if (items.length === 0) {
           content.innerHTML =
@@ -4354,6 +4755,10 @@
             }
           }
         }
+        // 拷贝漫画封面在图床 CDN 上，有防盗链，需要经自建代理加载
+        if (coverSrc && src.id === 'copymanga') {
+          coverSrc = proxifyImageUrl(coverSrc);
+        }
 
         var tagsHtml = '';
         var tagContainer = doc.querySelector('[class*="tag"]:not([class*="nav"]):not(nav), .tags, .tag-list');
@@ -4384,18 +4789,32 @@
         }
 
         currentChapters = [];
-        var seenChapterUrls = {};
-        for (var cl = 0; cl < chapterLinks.length; cl++) {
-          var chLink = chapterLinks[cl];
-          var chref = fixProxyUrl(chLink.getAttribute('href'), src.domains[currentDomainIndex]);
-          var chtext = chLink.textContent.trim();
-          if (chref && chtext && !seenChapterUrls[chref] && chtext.length < 130) {
-            seenChapterUrls[chref] = true;
-            currentChapters.push({ url: chref, title: chtext });
+        if (src.customChapters === 'copymanga') {
+          // 拷贝漫画：章节目录由加密接口提供（页面静态 HTML 里没有）
+          var cmPathWord = (comicUrl.match(/\/comic\/([^\/?#]+)/) || [])[1];
+          if (cmPathWord) {
+            try {
+              currentChapters = await copymangaFetchChapters(cmPathWord);
+              log('拷贝漫画章节: ' + currentChapters.length + ' 话');
+            } catch (ce) {
+              log('拷贝漫画章节接口失败: ' + (ce && ce.message));
+            }
+          }
+        } else {
+          var seenChapterUrls = {};
+          for (var cl = 0; cl < chapterLinks.length; cl++) {
+            var chLink = chapterLinks[cl];
+            var chref = fixProxyUrl(chLink.getAttribute('href'), src.domains[currentDomainIndex]);
+            var chtext = chLink.textContent.trim();
+            if (chref && chtext && !seenChapterUrls[chref] && chtext.length < 130) {
+              seenChapterUrls[chref] = true;
+              currentChapters.push({ url: chref, title: chtext });
+            }
           }
         }
 
-        if (currentChapters.length > 1) {
+        // 接口返回的章节本来就是阅读顺序，不再排序；其余源用标题里的「第N话」重新排
+        if (currentChapters.length > 1 && src.customChapters !== 'copymanga') {
           sortChapters(currentChapters);
         }
 
@@ -5513,6 +5932,22 @@
 
       try {
         var src = currentSource || COMIC_SOURCES[0];
+
+        // 拷贝漫画：图片清单是加密的 contentKey，用专属解码器还原（阅读页需要带重试的抓取）
+        if (src.id === 'copymanga') {
+          var cmHtml = await fetchCopymangaReaderPage(chapter.url);
+          var cmPreloadImages = await decodeCopymangaChapterImages(cmHtml);
+          if (cmPreloadImages && cmPreloadImages.length) {
+            for (var cp = 0; cp < cmPreloadImages.length; cp++) {
+              var cpImg = new Image();
+              cpImg.src = cmPreloadImages[cp];
+              preloadedChapters[key].push(cmPreloadImages[cp]);
+            }
+          }
+          log('预加载第' + (index + 1) + '话: ' + ((cmPreloadImages && cmPreloadImages.length) ? cmPreloadImages.length : 0) + '张图片');
+          return;
+        }
+
         var html = await fetchWithProxies(chapter.url, src.domains[0]);
         var doc = parseHTML(html);
         var images = [];
@@ -5615,6 +6050,10 @@
       if (currentView !== 'reader') return;
       // 跳过交互元素
       if (e.target.closest('button') || e.target.closest('a') || e.target.closest('input')) return;
+      // 跳过带 data-action 的可点区域（章节项、书签、追漫按钮等）：
+      // 点章节时 loadChapter 会同步把 currentView 切成 reader，同一个点击事件冒泡到这里
+      // 会被误判成「点按翻页」，导致实际打开的章节偏移到上一话/下一话
+      if (e.target.closest('[data-action]')) return;
       // 单击：立即翻页
       handleReaderTap(e.clientY);
     });

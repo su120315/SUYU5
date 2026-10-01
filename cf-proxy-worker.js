@@ -65,6 +65,8 @@ const REFERER_MAP = [
   ['baozimh.com', 'https://www.baozimh.com/'],
   ['copymanga.site', 'https://www.copymanga.site/'],
   ['mangacopy.com', 'https://www.mangacopy.com/'],
+  // 拷贝漫画的图床 CDN 与静态资源（封面、章节图片都在 mangafunb 系域名上）
+  ['mangafunb.fun', 'https://www.mangacopy.com/'],
   ['dmzj.com', 'https://www.dmzj.com/'],
   ['manhuadb.com', 'https://www.manhuadb.com/'],
   ['dm5.com', 'https://www.dm5.com/'],
@@ -182,8 +184,10 @@ export default {
 
     const contentType = upstream.headers.get('Content-Type') || '';
 
-    // 图片模式只放行真正的图片，防止被当作任意内容的开放代理
-    if (isImage && !/^image\//i.test(contentType)) {
+    // 图片模式只放行真正的图片，防止被当作任意内容的开放代理。
+    // 注意：不少图床（如拷贝漫画的 mangafunb 系 CDN）返回的是 application/octet-stream，
+    // 也是合法图片，需要一并放行。
+    if (isImage && !/^image\//i.test(contentType) && !/octet-stream/i.test(contentType)) {
       return textResponse('目标不是图片（Content-Type: ' + contentType + '）', 403);
     }
 
